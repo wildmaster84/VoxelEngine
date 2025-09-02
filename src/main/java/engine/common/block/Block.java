@@ -5,4 +5,8 @@ public class Block {
     public Block(byte type) { this.type = type; }
     public byte getType() { return type; }
     public void setType(byte type) { this.type = type; }
+	public boolean isSolid() {
+		if (this.type == 0) return false;
+		return true;
+	}
 }
