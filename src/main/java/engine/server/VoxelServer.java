@@ -12,12 +12,11 @@ import engine.common.network.packet.PlayerMovePacket;
 import engine.common.player.Player;
 import engine.common.world.Chunk;
 import engine.common.world.FlatChunkGenerator;
+import server.event.player.PlayerJoinEvent;
 
 import java.io.File;
-import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Consumer;
 
 
 public class VoxelServer {
@@ -26,6 +25,7 @@ public class VoxelServer {
  private BlockRegistry blockRegistry = BlockRegistry.createDefault();
  private ChunkGenerator chunkGenerator = new FlatChunkGenerator();
  private Map<String, Player> players = new ConcurrentHashMap<>();
+ private server.Server serverInstance;
 
  // Track which chunks have been sent to which connection
  private Map<Connection, Set<String>> sentChunks = new ConcurrentHashMap<>();
@@ -40,7 +40,7 @@ public class VoxelServer {
      new VoxelServer().start();
  }
 
- public void start() throws Exception {
+ private void start() throws Exception {
      registerPacketHandlers();
 
      network.startServer(54555, 54777);
@@ -60,6 +60,10 @@ public class VoxelServer {
              sentChunks.remove(connection);
          }
      });
+     
+     //init Server instance
+     serverInstance = new server.Server();
+     serverInstance.start();
  }
 
  private void sendChunkIfNotSent(Connection connection, int cx, int cy, int cz) {
@@ -73,7 +77,6 @@ public class VoxelServer {
          );
          connection.sendTCP(chunkPacket);
          sent.add(chunkKey);
-         System.out.println("Server: Sent chunk " + chunkKey + " to client.");
      } else {
          // Optional: System.out.println("Server: Skipped sending duplicate chunk " + chunkKey);
      }
@@ -81,9 +84,10 @@ public class VoxelServer {
 
  private void registerPacketHandlers() {
      packetHandlers.put(PlayerJoinPacket.class, (PacketHandler<PlayerJoinPacket>) (connection, pj) -> {
-         Player player = new Player();
+         Player player = new Player(UUID.randomUUID(), "Player");
          player.setPosition(pj.x, pj.y, pj.z);
          players.put(pj.playerId, player);
+         serverInstance.getEventManager().fireEvent(new PlayerJoinEvent(player));
 
          int playerChunkX = (int) Math.floor(player.getX() / Chunk.SIZE);
          int playerChunkZ = (int) Math.floor(player.getZ() / Chunk.SIZE);
