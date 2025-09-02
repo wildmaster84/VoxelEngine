@@ -1,25 +1,52 @@
-package engine.world;
+package engine.common.world;
 
 import java.io.*;
 
-import engine.network.NetworkManager;
+import engine.common.block.Block;
+import engine.common.network.NetworkManager;
 
+/**
+ * Shared chunk class. Only the server should generate/fill blocks.
+ * The client should only fill blocks via deserializeBlocks, using the factory method below.
+ */
 public class Chunk {
     public static final int SIZE = 16;
     private final int chunkX, chunkY, chunkZ;
     private final Block[][][] blocks = new Block[SIZE][SIZE][SIZE];
-    public Chunk(int chunkX, int chunkY, int chunkZ) {
-        this.chunkX = chunkX; this.chunkY = chunkY; this.chunkZ = chunkZ;
+
+    // Private constructor: does NOT fill blocks!
+    private Chunk(int chunkX, int chunkY, int chunkZ) {
+        this.chunkX = chunkX;
+        this.chunkY = chunkY;
+        this.chunkZ = chunkZ;
+    }
+
+    /** Server-side factory: generates blocks as empty (air/0) and then generator fills them. */
+    public static Chunk createGenerated(int chunkX, int chunkY, int chunkZ) {
+        Chunk chunk = new Chunk(chunkX, chunkY, chunkZ);
         for(int x=0;x<SIZE;x++)
             for(int y=0;y<SIZE;y++)
                 for(int z=0;z<SIZE;z++)
-                    blocks[x][y][z] = new Block((byte)0);
+                    chunk.blocks[x][y][z] = new Block((byte)0);
+        return chunk;
     }
-    public Block getBlock(int x, int y, int z) { return blocks[x][y][z]; }
+
+    /** Client-side factory: creates chunk and immediately fills from network data. */
+    public static Chunk fromNetwork(int chunkX, int chunkY, int chunkZ, byte[] packet) {
+        Chunk chunk = new Chunk(chunkX, chunkY, chunkZ);
+        chunk.deserializeBlocks(packet);
+        return chunk;
+    }
+
+    public Block getBlock(int x, int y, int z) {
+        if (x < 0 || x >= SIZE || y < 0 || y >= SIZE || z < 0 || z >= SIZE) return null;
+        return blocks[x][y][z];
+    }
     public void setBlock(int x, int y, int z, Block block) { blocks[x][y][z] = block; }
     public int getX() { return chunkX; }
     public int getY() { return chunkY; }
     public int getZ() { return chunkZ; }
+
     public void save(File file) throws IOException {
         try(DataOutputStream out = new DataOutputStream(new FileOutputStream(file))) {
             out.writeInt(chunkX); out.writeInt(chunkY); out.writeInt(chunkZ);
@@ -32,7 +59,7 @@ public class Chunk {
     public static Chunk load(File file) throws IOException {
         try(DataInputStream in = new DataInputStream(new FileInputStream(file))) {
             int cx = in.readInt(), cy = in.readInt(), cz = in.readInt();
-            Chunk chunk = new Chunk(cx, cy, cz);
+            Chunk chunk = createGenerated(cx, cy, cz); // Loads on server
             for(int x=0;x<SIZE;x++)
                 for(int y=0;y<SIZE;y++)
                     for(int z=0;z<SIZE;z++)
@@ -40,7 +67,6 @@ public class Chunk {
             return chunk;
         }
     }
- // Add these methods to your Chunk class
 
     public byte[] serializeBlocks() {
         byte[] data = new byte[SIZE * SIZE * SIZE];
@@ -48,25 +74,23 @@ public class Chunk {
         for (int x = 0; x < SIZE; x++)
             for (int y = 0; y < SIZE; y++)
                 for (int z = 0; z < SIZE; z++)
-                    data[i++] = getBlock(x, y, z).getType(); // Adjust for your block storage
+                    data[i++] = getBlock(x, y, z).getType();
         return NetworkManager.compress(data);
     }
 
     public void deserializeBlocks(byte[] packet) {
-    	byte[] data;
-		try {
-			data = NetworkManager.decompress(packet);
-		} catch (Exception e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-			return;
-		}
+        byte[] data;
+        try {
+            data = NetworkManager.decompress(packet);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return;
+        }
         int i = 0;
         for (int x = 0; x < SIZE; x++)
             for (int y = 0; y < SIZE; y++)
                 for (int z = 0; z < SIZE; z++) {
-                	setBlock(x, y, z, new Block(data[i++])); // Adjust for your block constructor/storage
+                    blocks[x][y][z] = new Block(data[i++]); // Overwrite directly
                 }
-                    
     }
 }

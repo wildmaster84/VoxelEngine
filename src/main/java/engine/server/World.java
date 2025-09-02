@@ -1,8 +1,11 @@
-package engine.world;
+package engine.server;
 
 import java.io.*;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+
+import engine.common.world.Chunk;
+import engine.common.block.BlockRegistry;
 
 public class World {
     public final Map<String, Chunk> chunks = new ConcurrentHashMap<>();
@@ -30,13 +33,12 @@ public class World {
         }
     }
     public void saveChunk(Chunk chunk) {
-    	File f = new File(worldDir, "chunk_" + chunk.getX() + "_" + chunk.getY() + "_" + chunk.getZ() + ".bin");
+        File f = new File(worldDir, "chunk_" + chunk.getX() + "_" + chunk.getY() + "_" + chunk.getZ() + ".bin");
         try {
-			chunk.save(f);
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
+            chunk.save(f);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
     public void loadAll() throws IOException {
         File[] files = worldDir.listFiles((dir, name) -> name.startsWith("chunk_") && name.endsWith(".bin"));
@@ -46,12 +48,15 @@ public class World {
             setChunk(chunk);
         }
     }
-    public Chunk getOrCreateChunk(int x,int y,int z) {
-        Chunk c = getChunk(x, y, z);
-        if(c == null) {
-            c = new Chunk(x, y, z);
-            setChunk(c);
+    // Pass chunkGenerator and blockRegistry as parameters!
+    public Chunk getOrCreateChunk(int x, int y, int z, ChunkGenerator chunkGenerator, BlockRegistry blockRegistry) {
+        Chunk chunk = getChunk(x, y, z);
+        if (chunk == null) {
+            chunk = Chunk.createGenerated(x, y, z); // Generate chunk (server only)
+            chunkGenerator.generate(chunk, blockRegistry);
+            setChunk(chunk);
+            saveChunk(chunk);
         }
-        return c;
+        return chunk;
     }
 }

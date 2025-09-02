@@ -1,4 +1,4 @@
-package engine.world;
+package engine.common.block;
 
 public class Block {
     private byte type;

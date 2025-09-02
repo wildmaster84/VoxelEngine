@@ -1,4 +1,4 @@
-package engine.network.packet;
+package engine.common.network.packet;
 public class BlockUpdatePacket {
     public int chunkX, chunkY, chunkZ;
     public int x, y, z;

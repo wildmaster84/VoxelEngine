@@ -1,4 +1,4 @@
-package engine.network.packet;
+package engine.common.network.packet;
 public class PlayerMovePacket {
     public String playerId;
     public float x, y, z, yaw, pitch;

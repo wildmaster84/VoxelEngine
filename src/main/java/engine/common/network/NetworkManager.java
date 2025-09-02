@@ -1,10 +1,13 @@
-package engine.network;
+package engine.common.network;
 
 import java.util.zip.Deflater;
 import java.util.zip.Inflater;
 
 import com.esotericsoftware.kryonet.*;
-import engine.network.packet.*;
+
+import engine.common.network.packet.BlockUpdatePacket;
+import engine.common.network.packet.PlayerJoinPacket;
+import engine.common.network.packet.PlayerMovePacket;
 
 public class NetworkManager {
     private Server server;
@@ -13,7 +16,7 @@ public class NetworkManager {
         endPoint.getKryo().register(PlayerMovePacket.class);
         endPoint.getKryo().register(BlockUpdatePacket.class);
         endPoint.getKryo().register(PlayerJoinPacket.class);
-        endPoint.getKryo().register(engine.network.packet.ChunkDataPacket.class);
+        endPoint.getKryo().register(engine.common.network.packet.ChunkDataPacket.class);
         endPoint.getKryo().register(byte[].class); 
     }
     public void startServer(int tcpPort, int udpPort) throws Exception {
