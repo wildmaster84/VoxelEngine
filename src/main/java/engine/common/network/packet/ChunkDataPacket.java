@@ -1,4 +1,4 @@
-package engine.network.packet;
+package engine.common.network.packet;
 
 public class ChunkDataPacket {
     public int chunkX, chunkY, chunkZ;

@@ -1,31 +1,43 @@
 package engine.client;
 
 import com.esotericsoftware.kryonet.*;
-import engine.network.NetworkManager;
-import engine.network.packet.*;
-import engine.world.*;
-import engine.block.BlockRegistry;
-import engine.player.Player;
+
+import engine.common.block.Block;
+import engine.common.block.BlockRegistry;
+import engine.common.network.NetworkManager;
+import engine.common.network.packet.BlockUpdatePacket;
+import engine.common.network.packet.ChunkDataPacket;
+import engine.common.network.packet.PlayerJoinPacket;
+import engine.common.network.packet.PlayerMovePacket;
+import engine.common.player.Player;
+import engine.common.world.Chunk;
+
 import org.lwjgl.glfw.GLFW;
 import org.lwjgl.opengl.GL;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.system.MemoryStack;
 import org.joml.Matrix4f;
 
-import java.io.File;
 import java.nio.FloatBuffer;
 import java.util.*;
 
 public class VoxelClient {
     private NetworkManager network = new NetworkManager();
-    private World world = new World(new File("clientworld"));
+    private WorldView worldView = new WorldView(); // In-memory only
     private BlockRegistry blockRegistry = BlockRegistry.createDefault();
     private Player localPlayer = new Player();
     private Map<String, Player> otherPlayers = new HashMap<>();
-    private VoxelRenderer renderer = new VoxelRenderer(world, blockRegistry);
+    private TextureManager textureManager = new TextureManager();
+    private VoxelRenderer renderer = new VoxelRenderer(worldView, blockRegistry, textureManager);
+
+    @FunctionalInterface
+    interface PacketHandler<T> {
+        void handle(Connection connection, T packet);
+    }
+    private final Map<Class<?>, PacketHandler<?>> packetHandlers = new HashMap<>();
 
     // Camera state
-    private float camYaw = 0, camPitch = 45, camDist = 32;
+    private float camYaw = 0, camPitch = 45, camDist = 1;
     private double lastMouseX = 400, lastMouseY = 300;
 
     public static void main(String[] args) throws Exception {
@@ -33,41 +45,21 @@ public class VoxelClient {
     }
 
     public void start() throws Exception {
+        registerPacketHandlers();
+
         network.startClient("localhost", 54555, 54777);
         Client client = network.getClient();
 
         client.addListener(new Listener() {
             public void received(Connection connection, Object packet) {
-                if(packet instanceof PlayerJoinPacket) {
-                    PlayerJoinPacket pj = (PlayerJoinPacket)packet;
-                    Player p = new Player();
-                    p.setPosition(pj.x, pj.y, pj.z);
-                    otherPlayers.put(pj.playerId, p);
-                }
-                if(packet instanceof PlayerMovePacket) {
-                    PlayerMovePacket pm = (PlayerMovePacket)packet;
-                    Player p = otherPlayers.get(pm.playerId);
-                    if(p != null) {
-                        p.setPosition(pm.x, pm.y, pm.z);
-                        p.setYaw(pm.yaw);
-                        p.setPitch(pm.pitch);
-                    }
-                }
-                if(packet instanceof BlockUpdatePacket) {
-                    BlockUpdatePacket bu = (BlockUpdatePacket)packet;
-                    Chunk chunk = world.getOrCreateChunk(bu.chunkX, bu.chunkY, bu.chunkZ);
-                    chunk.setBlock(bu.x, bu.y, bu.z, new Block(bu.blockType));
-                }
-                if(packet instanceof ChunkDataPacket) {
-                    ChunkDataPacket cd = (ChunkDataPacket)packet;
-                    Chunk chunk = new Chunk(cd.chunkX, cd.chunkY, cd.chunkZ);
-                    chunk.deserializeBlocks(cd.blockTypes);
-                    world.setChunk(chunk);
+                PacketHandler handler = packetHandlers.get(packet.getClass());
+                if (handler != null) {
+                    handler.handle(connection, packet);
                 }
             }
         });
 
-        // Send join packet
+        // Send join packet (client sends, but does NOT handle PlayerJoinPacket)
         PlayerJoinPacket join = new PlayerJoinPacket();
         join.playerId = "LocalPlayer";
         join.x = localPlayer.getX(); join.y = localPlayer.getY(); join.z = localPlayer.getZ();
@@ -81,7 +73,6 @@ public class VoxelClient {
 
         // Hide and capture mouse
         GLFW.glfwSetInputMode(window, GLFW.GLFW_CURSOR, GLFW.GLFW_CURSOR_DISABLED);
-        // Center mouse
         GLFW.glfwSetCursorPos(window, lastMouseX, lastMouseY);
 
         GL11.glClearColor(0.5f, 0.7f, 1f, 1f); // sky blue
@@ -89,7 +80,7 @@ public class VoxelClient {
         while (!GLFW.glfwWindowShouldClose(window)) {
             GL11.glClear(GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT);
             GL11.glEnable(GL11.GL_DEPTH_TEST);
-
+            
             // --- Mouse look (orbit camera) ---
             double[] mx = new double[1], my = new double[1];
             GLFW.glfwGetCursorPos(window, mx, my);
@@ -115,7 +106,6 @@ public class VoxelClient {
             float rightX = (float)Math.sin(yawRad + Math.PI / 2.0);
             float rightZ = (float)Math.cos(yawRad + Math.PI / 2.0);
 
-            int renderDistance = 8;
             float px = localPlayer.getX(), py = localPlayer.getY(), pz = localPlayer.getZ();
 
             if(GLFW.glfwGetKey(window, GLFW.GLFW_KEY_W)==GLFW.GLFW_PRESS) {
@@ -168,6 +158,8 @@ public class VoxelClient {
                 GL11.glMatrixMode(GL11.GL_MODELVIEW);
                 GL11.glLoadMatrixf(viewBuffer);
             }
+            
+            loadAllTexturesFromRegistry();
 
             renderer.renderWorld(localPlayer);
 
@@ -176,5 +168,51 @@ public class VoxelClient {
         }
         GLFW.glfwDestroyWindow(window);
         GLFW.glfwTerminate();
+    }
+
+    private void registerPacketHandlers() {
+        // Only handle packets that make sense for the client to process
+
+        // Handle chunk data sent by server
+        packetHandlers.put(ChunkDataPacket.class, (PacketHandler<ChunkDataPacket>) (connection, cd) -> {
+            Chunk chunk = Chunk.fromNetwork(cd.chunkX, cd.chunkY, cd.chunkZ, cd.blockTypes);
+            worldView.setChunk(chunk);
+            System.out.println("Received chunk: " + cd.chunkX + "," + cd.chunkY + "," + cd.chunkZ);
+        });
+
+        // Handle block update packet
+        packetHandlers.put(BlockUpdatePacket.class, (PacketHandler<BlockUpdatePacket>) (connection, bu) -> {
+            Chunk chunk = worldView.getChunk(bu.chunkX, bu.chunkY, bu.chunkZ);
+            if (chunk != null) {
+                chunk.setBlock(bu.x, bu.y, bu.z, new Block(bu.blockType));
+            }
+        });
+
+        // Handle other player movement packet
+        packetHandlers.put(PlayerMovePacket.class, (PacketHandler<PlayerMovePacket>) (connection, pm) -> {
+            // Don't update localPlayer from network
+            if (!"LocalPlayer".equals(pm.playerId)) {
+                Player p = otherPlayers.get(pm.playerId);
+                if (p == null) {
+                    p = new Player();
+                    otherPlayers.put(pm.playerId, p);
+                }
+                p.setPosition(pm.x, pm.y, pm.z);
+                p.setYaw(pm.yaw);
+                p.setPitch(pm.pitch);
+            }
+        });
+
+        // Do NOT handle PlayerJoinPacket on client (only server)
+    }
+    public void loadAllTexturesFromRegistry() {
+        for (BlockRegistry.BlockInfo info : blockRegistry.getAllBlockInfos()) {
+            if (info.textureTop != null)
+                textureManager.loadTexture(info.textureTop, "textures/" + info.textureTop);
+            if (info.textureSide != null)
+                textureManager.loadTexture(info.textureSide, "textures/" + info.textureSide);
+            if (info.textureBottom != null)
+                textureManager.loadTexture(info.textureBottom, "textures/" + info.textureBottom);
+        }
     }
 }

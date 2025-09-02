@@ -1,9 +1,9 @@
 package engine.plugin;
 
-import engine.block.BlockRegistry;
-import engine.world.World;
-import engine.player.Player;
-import engine.world.Chunk;
+import engine.common.block.BlockRegistry;
+import engine.common.player.Player;
+import engine.common.world.Chunk;
+import engine.server.World;
 
 public interface EnginePlugin {
     default void onRegisterBlocks(BlockRegistry registry) {}

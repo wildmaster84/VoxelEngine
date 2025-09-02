@@ -1,22 +1,21 @@
 package engine.client;
 
-import engine.world.World;
-import engine.world.Chunk;
-import engine.block.BlockRegistry;
-import engine.player.Player;
-
-import java.util.Map.Entry;
+import engine.common.block.BlockRegistry;
+import engine.common.player.Player;
+import engine.common.world.Chunk;
 
 import org.lwjgl.opengl.GL11;
 
 public class VoxelRenderer {
-    private World world;
+    private WorldView world;
     private BlockRegistry blockRegistry;
+    private TextureManager textureManager; // New field for texture system
     private static final int VIEW_DISTANCE = 6;
 
-    public VoxelRenderer(World world, BlockRegistry blockRegistry) {
+    public VoxelRenderer(WorldView world, BlockRegistry blockRegistry, TextureManager textureManager) {
         this.world = world;
         this.blockRegistry = blockRegistry;
+        this.textureManager = textureManager;
     }
 
     public void renderWorld(Player player) {
@@ -31,9 +30,7 @@ public class VoxelRenderer {
             if (Math.abs(dx) > VIEW_DISTANCE ||
                 Math.abs(dy) > VIEW_DISTANCE ||
                 Math.abs(dz) > VIEW_DISTANCE) {
-            	world.saveChunk(chunk);
-            	world.chunks.remove(world.getChunkKey(chunk.getX(), chunk.getY(), chunk.getZ()));
-            	continue;
+                continue;
             }
             renderChunk(chunk);
         }
@@ -76,22 +73,67 @@ public class VoxelRenderer {
         return chunk.getBlock(nx, ny, nz).getType() == blockRegistry.getAirId();
     }
 
+    // Updated to use the texture manager
     private void renderBlockFace(int x, int y, int z, byte type, String face) {
         GL11.glPushMatrix();
         GL11.glTranslatef(x, y, z);
         BlockRegistry.BlockInfo info = blockRegistry.getInfo(type);
-        GL11.glColor3f(info.r, info.g, info.b);
+
+        //GL11.glColor3f(info.r, info.g, info.b);
+
+        // Select the correct texture for the face
+        String textureName;
+        switch (face) {
+            case "top":    textureName = info.textureTop;    break;
+            case "bottom": textureName = info.textureBottom; break;
+            default:       textureName = info.textureSide;   break; // front, back, left, right
+        }
+        if (type == blockRegistry.getAirId() || textureName == null) return;
+        
+        GL11.glEnable(GL11.GL_TEXTURE_2D);
+        textureManager.bindTexture(textureName);
 
         GL11.glBegin(GL11.GL_QUADS);
         switch (face) {
-            case "front": GL11.glVertex3f(0,0,1); GL11.glVertex3f(1,0,1); GL11.glVertex3f(1,1,1); GL11.glVertex3f(0,1,1); break;
-            case "back": GL11.glVertex3f(0,0,0); GL11.glVertex3f(1,0,0); GL11.glVertex3f(1,1,0); GL11.glVertex3f(0,1,0); break;
-            case "left": GL11.glVertex3f(0,0,0); GL11.glVertex3f(0,0,1); GL11.glVertex3f(0,1,1); GL11.glVertex3f(0,1,0); break;
-            case "right": GL11.glVertex3f(1,0,0); GL11.glVertex3f(1,0,1); GL11.glVertex3f(1,1,1); GL11.glVertex3f(1,1,0); break;
-            case "top": GL11.glVertex3f(0,1,0); GL11.glVertex3f(1,1,0); GL11.glVertex3f(1,1,1); GL11.glVertex3f(0,1,1); break;
-            case "bottom": GL11.glVertex3f(0,0,0); GL11.glVertex3f(1,0,0); GL11.glVertex3f(1,0,1); GL11.glVertex3f(0,0,1); break;
+        case "front":
+            GL11.glTexCoord2f(0, 1); GL11.glVertex3f(0,0,1);
+            GL11.glTexCoord2f(1, 1); GL11.glVertex3f(1,0,1);
+            GL11.glTexCoord2f(1, 0); GL11.glVertex3f(1,1,1);
+            GL11.glTexCoord2f(0, 0); GL11.glVertex3f(0,1,1);
+            break;
+        case "back":
+            GL11.glTexCoord2f(0, 1); GL11.glVertex3f(0,0,0);
+            GL11.glTexCoord2f(1, 1); GL11.glVertex3f(1,0,0);
+            GL11.glTexCoord2f(1, 0); GL11.glVertex3f(1,1,0);
+            GL11.glTexCoord2f(0, 0); GL11.glVertex3f(0,1,0);
+            break;
+        case "left":
+            GL11.glTexCoord2f(0, 1); GL11.glVertex3f(0,0,0);
+            GL11.glTexCoord2f(1, 1); GL11.glVertex3f(0,0,1);
+            GL11.glTexCoord2f(1, 0); GL11.glVertex3f(0,1,1);
+            GL11.glTexCoord2f(0, 0); GL11.glVertex3f(0,1,0);
+            break;
+        case "right":
+            GL11.glTexCoord2f(0, 1); GL11.glVertex3f(1,0,0);
+            GL11.glTexCoord2f(1, 1); GL11.glVertex3f(1,0,1);
+            GL11.glTexCoord2f(1, 0); GL11.glVertex3f(1,1,1);
+            GL11.glTexCoord2f(0, 0); GL11.glVertex3f(1,1,0);
+            break;
+        case "top":
+            GL11.glTexCoord2f(0, 1); GL11.glVertex3f(0,1,0);
+            GL11.glTexCoord2f(1, 1); GL11.glVertex3f(1,1,0);
+            GL11.glTexCoord2f(1, 0); GL11.glVertex3f(1,1,1);
+            GL11.glTexCoord2f(0, 0); GL11.glVertex3f(0,1,1);
+            break;
+        case "bottom":
+            GL11.glTexCoord2f(0, 1); GL11.glVertex3f(0,0,0);
+            GL11.glTexCoord2f(1, 1); GL11.glVertex3f(1,0,0);
+            GL11.glTexCoord2f(1, 0); GL11.glVertex3f(1,0,1);
+            GL11.glTexCoord2f(0, 0); GL11.glVertex3f(0,0,1);
+            break;
         }
         GL11.glEnd();
+        GL11.glDisable(GL11.GL_TEXTURE_2D);
         GL11.glPopMatrix();
     }
 }
