@@ -45,15 +45,6 @@ public class VoxelServer {
 
      network.startServer(54555, 54777);
      Server server = network.getServer();
-     
-//     new Thread(() -> {
-//         while (true) {
-//             for (Player p : players.values()) {
-//                 p.updatePhysics(world); // Server-side!
-//             }
-//             try { Thread.sleep(50); } catch (InterruptedException e) { return; }
-//         }
-//     }).start();
 
      server.addListener(new Listener() {
          public void received(Connection connection, Object packet) {
