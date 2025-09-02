@@ -25,7 +25,7 @@ public class VoxelClient {
     private NetworkManager network = new NetworkManager();
     private WorldView worldView = new WorldView(); // In-memory only
     private BlockRegistry blockRegistry = BlockRegistry.createDefault();
-    private Player localPlayer = new Player();
+    private Player localPlayer = new Player(UUID.randomUUID(), "Player");
     private Map<String, Player> otherPlayers = new HashMap<>();
     private TextureManager textureManager = new TextureManager();
     private VoxelRenderer renderer = new VoxelRenderer(worldView, blockRegistry, textureManager);
@@ -61,7 +61,7 @@ public class VoxelClient {
 
         // Send join packet (client sends, but does NOT handle PlayerJoinPacket)
         PlayerJoinPacket join = new PlayerJoinPacket();
-        join.playerId = "LocalPlayer";
+        join.playerId = localPlayer.getUniqueID().toString();
         join.x = localPlayer.getX(); join.y = localPlayer.getY(); join.z = localPlayer.getZ();
         client.sendTCP(join);
 
@@ -163,7 +163,7 @@ public class VoxelClient {
 
             // Send movement packet
             PlayerMovePacket pm = new PlayerMovePacket();
-            pm.playerId = "LocalPlayer";
+            pm.playerId = localPlayer.getUniqueID().toString();
             pm.x = localPlayer.getX(); pm.y = localPlayer.getY(); pm.z = localPlayer.getZ();
             pm.yaw = camYaw; pm.pitch = camPitch;
             client.sendTCP(pm);
@@ -234,10 +234,10 @@ public class VoxelClient {
         // Handle other player movement packet
         packetHandlers.put(PlayerMovePacket.class, (PacketHandler<PlayerMovePacket>) (connection, pm) -> {
             // Don't update localPlayer from network
-            if (!"LocalPlayer".equals(pm.playerId)) {
+            if (!localPlayer.getUniqueID().toString().equals(pm.playerId)) {
                 Player p = otherPlayers.get(pm.playerId);
                 if (p == null) {
-                    p = new Player();
+                    p = new Player(UUID.randomUUID(), "Player");
                     otherPlayers.put(pm.playerId, p);
                 }
                 p.setPosition(pm.x, pm.y, pm.z);

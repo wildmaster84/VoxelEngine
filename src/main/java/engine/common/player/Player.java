@@ -1,9 +1,20 @@
 package engine.common.player;
 
+import java.util.UUID;
+
 public class Player {
     private float x,y,z;
     private float yaw, pitch;
-    public Player() { x=0; y=5; z=0; }
+    private final UUID uuid;
+    private String name;
+    public Player(UUID uuid, String name) { 
+    	x=0; y=5; z=0;
+    	this.uuid = uuid;
+    	this.name = name;
+    }
+    public UUID getUniqueID() { return uuid; }
+    public String getDisplayName() { return name; }
+    public void setDisplayName(String name) { this.name = name;}
     public void setPosition(float x, float y, float z) { this.x=x; this.y=y; this.z=z; }
     public void setYaw(float yaw) { this.yaw = yaw; }
     public void setPitch(float pitch) { this.pitch = pitch; }
