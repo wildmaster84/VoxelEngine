@@ -7,6 +7,7 @@ import com.esotericsoftware.kryonet.*;
 
 import engine.common.network.packet.BlockUpdatePacket;
 import engine.common.network.packet.ChunkDataPacket;
+import engine.common.network.packet.PlayerChatPacket;
 import engine.common.network.packet.PlayerJoinPacket;
 import engine.common.network.packet.PlayerMovePacket;
 
@@ -17,6 +18,7 @@ public class NetworkManager {
         endPoint.getKryo().register(PlayerMovePacket.class);
         endPoint.getKryo().register(BlockUpdatePacket.class);
         endPoint.getKryo().register(PlayerJoinPacket.class);
+        endPoint.getKryo().register(PlayerChatPacket.class);
         endPoint.getKryo().register(ChunkDataPacket.class);
         endPoint.getKryo().register(byte[].class); 
     }

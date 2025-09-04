@@ -1,6 +1,7 @@
 package server;
 
 import engine.plugin.PluginLoader;
+import engine.server.VoxelServer;
 import server.event.*;
 
 public class Server {
@@ -8,8 +9,12 @@ public class Server {
     private EventManager eventManager = new EventManager();
     private PluginLoader pluginLoader = new PluginLoader(eventManager);
     private static Server instance;
+    private VoxelServer self = null;
 
-    public void start() throws Exception {
+    public void start(VoxelServer self) throws Exception {
+    	if (self == null) return;
+    	this.self = self;
+    	
     	instance = this;
         pluginLoader.loadPlugins("./plugins");
 
@@ -34,5 +39,9 @@ public class Server {
     
     public static Server getInstance() {
     	return instance;
+    }
+    
+    public VoxelServer getCraftServer() {
+    	return self;
     }
 }

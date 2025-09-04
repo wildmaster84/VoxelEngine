@@ -2,14 +2,18 @@ package engine.server;
 
 import java.io.*;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Future;
 
+import engine.common.world.AsyncChunkGenerator;
 import engine.common.world.Chunk;
 import engine.common.block.BlockRegistry;
 
 public class World {
     public final Map<String, Chunk> chunks = new ConcurrentHashMap<>();
     private final File worldDir;
+    private final AsyncChunkGenerator asyncChunkGenerator = new AsyncChunkGenerator();
     public World(File worldDir) {
         this.worldDir = worldDir;
         if(!worldDir.exists()) worldDir.mkdirs();
@@ -58,5 +62,23 @@ public class World {
             saveChunk(chunk);
         }
         return chunk;
+    }
+    
+    public CompletableFuture<Chunk> getOrCreateChunkAsync(int x, int y, int z, ChunkGenerator chunkGenerator, BlockRegistry blockRegistry) {
+        Chunk chunk = getChunk(x, y, z);
+        if (chunk != null) {
+            return CompletableFuture.completedFuture(chunk);
+        } else {
+            CompletableFuture<Chunk> future = asyncChunkGenerator.generateChunkAsync(x, y, z, chunkGenerator, blockRegistry);
+            future.thenAccept(genChunk -> {
+                setChunk(genChunk);
+                saveChunk(genChunk);
+            });
+            return future;
+        }
+    }
+
+    public void shutdownAsyncGenerator() {
+        asyncChunkGenerator.shutdown();
     }
 }
