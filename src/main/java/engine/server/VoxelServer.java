@@ -7,6 +7,7 @@ import engine.common.block.BlockRegistry;
 import engine.common.network.NetworkManager;
 import engine.common.network.packet.BlockUpdatePacket;
 import engine.common.network.packet.ChunkDataPacket;
+import engine.common.network.packet.PlayerChatPacket;
 import engine.common.network.packet.PlayerJoinPacket;
 import engine.common.network.packet.PlayerMovePacket;
 import engine.common.player.Player;
@@ -65,8 +66,9 @@ public class VoxelServer {
      
      //init Server instance
      serverInstance = new server.Server();
-     serverInstance.start();
      RegisterServerEvents();
+     serverInstance.start(this);
+     
  }
 
  private void sendChunkIfNotSent(Connection connection, int cx, int cy, int cz) {
@@ -91,9 +93,12 @@ public class VoxelServer {
  	eventManager.registerListener(PlayerChatEvent.class, new server.event.EventListener<PlayerChatEvent>() {
 		@Override
 		public void handle(PlayerChatEvent event) {
-			System.out.println("Fired server event");
 			Player player = event.getPlayer();
  	        Connection conn = player.getConnection(); // Or from a map
+ 	        PlayerChatPacket chatPacket = new PlayerChatPacket();
+ 	        chatPacket.playerId = player.getUniqueID().toString();
+ 	        chatPacket.message = event.getText();
+ 	        conn.sendTCP(chatPacket);
 
 		}
  	});

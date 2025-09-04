@@ -7,6 +7,7 @@ import engine.common.block.BlockRegistry;
 import engine.common.network.NetworkManager;
 import engine.common.network.packet.BlockUpdatePacket;
 import engine.common.network.packet.ChunkDataPacket;
+import engine.common.network.packet.PlayerChatPacket;
 import engine.common.network.packet.PlayerJoinPacket;
 import engine.common.network.packet.PlayerMovePacket;
 import engine.common.world.Chunk;
@@ -29,6 +30,7 @@ public class VoxelClient {
     private Map<String, Player> otherPlayers = new HashMap<>();
     private TextureManager textureManager = new TextureManager();
     private VoxelRenderer renderer = new VoxelRenderer(worldView, blockRegistry, textureManager);
+    private MessageOverlay overlay = new MessageOverlay();
 
     @FunctionalInterface
     interface PacketHandler<T> {
@@ -88,8 +90,15 @@ public class VoxelClient {
         boolean jumping = false;
         float gravity = -0.06f; // Adjust for world scale/speed
         float jumpStrength = 0.3f; // Adjust for desired jump height
+        
+        int frames = 0;
+        long lastTime = System.nanoTime();
+        float fps = 0.0f;
+        
+        loadAllTexturesFromRegistry();
 
         while (!GLFW.glfwWindowShouldClose(window)) {
+        	
             GL11.glClear(GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT);
             GL11.glEnable(GL11.GL_DEPTH_TEST);
 
@@ -202,10 +211,32 @@ public class VoxelClient {
                 GL11.glLoadMatrixf(viewBuffer);
             }
 
-            loadAllTexturesFromRegistry();
 
             renderer.renderWorld(localPlayer);
             MessageOverlay.render();
+            
+         // Calculate FPS
+            
+            
+            frames++;
+            long now = System.nanoTime();
+            // Update FPS every second
+            if (now - lastTime >= 1_000_000_000L) {
+                fps = frames * 1_000_000_000.0f / (now - lastTime);
+                frames = 0;
+                lastTime = now;
+            }
+
+            // Other debug info
+            String playerPos = "X:" + localPlayer.getX() + " Y:" + localPlayer.getY() + "Z:" + localPlayer.getX(); // e.g. "X:123 Y:64 Z:42"
+            long usedMem = Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory();
+            String memStr = String.format("Mem: %.2f MB", usedMem / 1024.0 / 1024.0);
+
+            // Combine messages
+            String debugString = String.format("FPS: %.2f  |  %s  |  %s | Chunks: %s", fps, playerPos, memStr, worldView.getChunks().size());
+
+            // Display in overlay
+            MessageOverlay.addMessage(debugString, 200); // Show for 1 second (refreshes each frame)
 
             GLFW.glfwSwapBuffers(window);
             GLFW.glfwPollEvents();
@@ -232,6 +263,9 @@ public class VoxelClient {
             }
         });
 
+        packetHandlers.put(PlayerChatPacket.class, (PacketHandler<PlayerChatPacket>) (connection, pc) -> {
+        	MessageOverlay.addMessage(pc.message);
+        });
         // Handle other player movement packet
         packetHandlers.put(PlayerMovePacket.class, (PacketHandler<PlayerMovePacket>) (connection, pm) -> {
             // Don't update localPlayer from network

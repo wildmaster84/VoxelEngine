@@ -23,12 +23,7 @@ public class Player {
     	return conn;
     }
     public void sendMessage(String message) {
-    	System.out.println("Called sendMessage");
-    	PlayerChatEvent event = new PlayerChatEvent(this, message, null);
-    	if (!event.isCancelled()) {
-    		Server.getInstance().getEventManager().fireEvent(event);
-    		System.out.println("fired sendMessage");
-    	}
+    	Server.getInstance().getEventManager().fireEvent(new PlayerChatEvent(this, message, null));
     }
 
     public UUID getUniqueID() { return uuid; }
