@@ -1,6 +1,7 @@
 package engine.client;
 
 import engine.common.block.BlockRegistry;
+import engine.common.block.Material;
 import engine.common.player.Player;
 import engine.common.world.Chunk;
 
@@ -43,8 +44,8 @@ public class VoxelRenderer {
         for (int x = 0; x < Chunk.SIZE; x++) {
             for (int y = 0; y < Chunk.SIZE; y++) {
                 for (int z = 0; z < Chunk.SIZE; z++) {
-                    byte type = chunk.getBlock(x, y, z).getType();
-                    if (type != blockRegistry.getAirId()) {
+                	Material type = chunk.getBlock(x, y, z).getType();
+                    if (type != Material.AIR) {
                         if (shouldRenderFace(chunk, x, y, z, 0, 0, 1))
                             renderBlockFace(baseX + x, baseY + y, baseZ + z, type, "front");
                         if (shouldRenderFace(chunk, x, y, z, 0, 0, -1))
@@ -70,11 +71,11 @@ public class VoxelRenderer {
             nz < 0 || nz >= Chunk.SIZE) {
             return true;
         }
-        return chunk.getBlock(nx, ny, nz).getType() == blockRegistry.getAirId();
+        return chunk.getBlock(nx, ny, nz).getType() == Material.AIR;
     }
 
     // Updated to use the texture manager
-    private void renderBlockFace(int x, int y, int z, byte type, String face) {
+    private void renderBlockFace(int x, int y, int z, Material type, String face) {
         GL11.glPushMatrix();
         GL11.glTranslatef(x, y, z);
         BlockRegistry.BlockInfo info = blockRegistry.getInfo(type);
@@ -88,7 +89,7 @@ public class VoxelRenderer {
             case "bottom": textureName = info.textureBottom; break;
             default:       textureName = info.textureSide;   break; // front, back, left, right
         }
-        if (type == blockRegistry.getAirId() || textureName == null) return;
+        if (type == Material.AIR || textureName == null) return;
         
         GL11.glEnable(GL11.GL_TEXTURE_2D);
         textureManager.bindTexture(textureName);

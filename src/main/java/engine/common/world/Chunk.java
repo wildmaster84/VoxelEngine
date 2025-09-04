@@ -3,6 +3,7 @@ package engine.common.world;
 import java.io.*;
 
 import engine.common.block.Block;
+import engine.common.block.Material;
 import engine.common.network.NetworkManager;
 
 /**
@@ -27,7 +28,7 @@ public class Chunk {
         for(int x=0;x<SIZE;x++)
             for(int y=0;y<SIZE;y++)
                 for(int z=0;z<SIZE;z++)
-                    chunk.blocks[x][y][z] = new Block((byte)0);
+                    chunk.blocks[x][y][z] = new Block(Material.AIR);
         return chunk;
     }
 
@@ -53,7 +54,7 @@ public class Chunk {
             for(int x=0;x<SIZE;x++)
                 for(int y=0;y<SIZE;y++)
                     for(int z=0;z<SIZE;z++)
-                        out.writeByte(blocks[x][y][z].getType());
+                    	out.writeByte(blocks[x][y][z].getType().getId());
         }
     }
     public static Chunk load(File file) throws IOException {
@@ -63,19 +64,19 @@ public class Chunk {
             for(int x=0;x<SIZE;x++)
                 for(int y=0;y<SIZE;y++)
                     for(int z=0;z<SIZE;z++)
-                        chunk.blocks[x][y][z].setType(in.readByte());
+                    	chunk.blocks[x][y][z].setType(Material.fromId(in.readByte()));
             return chunk;
         }
     }
 
     public byte[] serializeBlocks() {
-        byte[] data = new byte[SIZE * SIZE * SIZE];
-        int i = 0;
-        for (int x = 0; x < SIZE; x++)
-            for (int y = 0; y < SIZE; y++)
-                for (int z = 0; z < SIZE; z++)
-                    data[i++] = getBlock(x, y, z).getType();
-        return NetworkManager.compress(data);
+    	byte[] data = new byte[SIZE * SIZE * SIZE];
+    	int i = 0;
+    	for (int x = 0; x < SIZE; x++)
+    	    for (int y = 0; y < SIZE; y++)
+    	        for (int z = 0; z < SIZE; z++)
+    	            data[i++] = (byte)getBlock(x, y, z).getType().getId();
+    	return NetworkManager.compress(data);
     }
 
     public void deserializeBlocks(byte[] packet) {
@@ -90,7 +91,7 @@ public class Chunk {
         for (int x = 0; x < SIZE; x++)
             for (int y = 0; y < SIZE; y++)
                 for (int z = 0; z < SIZE; z++) {
-                    blocks[x][y][z] = new Block(data[i++]); // Overwrite directly
+                	blocks[x][y][z] = new Block(Material.fromId(data[i++]));
                 }
     }
 }
