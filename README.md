@@ -48,17 +48,25 @@ javac -d out/ $(find ./server -name "*.java")
 
 ### 2. **Running the Server**
 
-Assuming your server entry point is `server.Server`:
+Assuming your server entry point is `engine.server.VoxelServer`:
 
 ```sh
-java -cp out server.Server
+java -cp out engine.server.VoxelServer
+```
+
+### 2. **Running the Client**
+
+Assuming your server entry point is `engine.client.VoxelClient`:
+
+```sh
+java -cp out engine.client.VoxelClient
 ```
 
 Plugins are loaded from the `plugins/` directory.
 
 ---
 
-### 3. **Creating a Plugin**
+### 4. **Creating a Plugin**
 
 #### **1. Write your plugin class:**  
 Implement `server.plugin.VoxelPlugin`:
