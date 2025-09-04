@@ -1,8 +1,8 @@
 package engine.client;
 
+import engine.client.common.Player;
 import engine.common.block.BlockRegistry;
 import engine.common.block.Material;
-import engine.common.player.Player;
 import engine.common.world.Chunk;
 
 import org.lwjgl.opengl.GL11;

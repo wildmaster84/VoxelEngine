@@ -9,8 +9,8 @@ import engine.common.network.packet.BlockUpdatePacket;
 import engine.common.network.packet.ChunkDataPacket;
 import engine.common.network.packet.PlayerJoinPacket;
 import engine.common.network.packet.PlayerMovePacket;
-import engine.common.player.Player;
 import engine.common.world.Chunk;
+import engine.client.common.Player;
 
 import org.lwjgl.glfw.GLFW;
 import org.lwjgl.opengl.GL;
@@ -86,8 +86,8 @@ public class VoxelClient {
         Block blockBelow = worldView.getBlock((int)localPlayer.getX(), (int)(localPlayer.getY() - 0.01f), (int)localPlayer.getZ());
         boolean onGround = blockBelow != null && blockBelow.isSolid();
         boolean jumping = false;
-        float gravity = -0.028f; // Adjust for world scale/speed
-        float jumpStrength = 0.32f; // Adjust for desired jump height
+        float gravity = -0.06f; // Adjust for world scale/speed
+        float jumpStrength = 0.3f; // Adjust for desired jump height
 
         while (!GLFW.glfwWindowShouldClose(window)) {
             GL11.glClear(GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT);
@@ -107,7 +107,7 @@ public class VoxelClient {
             lastMouseY = mouseY;
 
             // --- WASD movement (XZ plane, ignores pitch) ---
-            float moveSpeed = 0.3f; // Adjust for reasonable walking speed
+            float moveSpeed = 3.3f; // Adjust for reasonable walking speed
             float yawRad = (float)Math.toRadians(camYaw);
 
             // Forward vector (XZ plane)
@@ -205,6 +205,7 @@ public class VoxelClient {
             loadAllTexturesFromRegistry();
 
             renderer.renderWorld(localPlayer);
+            MessageOverlay.render();
 
             GLFW.glfwSwapBuffers(window);
             GLFW.glfwPollEvents();
@@ -220,7 +221,7 @@ public class VoxelClient {
         packetHandlers.put(ChunkDataPacket.class, (PacketHandler<ChunkDataPacket>) (connection, cd) -> {
             Chunk chunk = Chunk.fromNetwork(cd.chunkX, cd.chunkY, cd.chunkZ, cd.blockTypes);
             worldView.setChunk(chunk);
-            System.out.println("Received chunk: " + cd.chunkX + "," + cd.chunkY + "," + cd.chunkZ);
+            //System.out.println("Received chunk: " + cd.chunkX + "," + cd.chunkY + "," + cd.chunkZ);
         });
 
         // Handle block update packet
@@ -235,7 +236,7 @@ public class VoxelClient {
         packetHandlers.put(PlayerMovePacket.class, (PacketHandler<PlayerMovePacket>) (connection, pm) -> {
             // Don't update localPlayer from network
             if (!localPlayer.getUniqueID().toString().equals(pm.playerId)) {
-                Player p = otherPlayers.get(pm.playerId);
+            	Player p = otherPlayers.get(pm.playerId);
                 if (p == null) {
                     p = new Player(UUID.randomUUID(), "Player");
                     otherPlayers.put(pm.playerId, p);

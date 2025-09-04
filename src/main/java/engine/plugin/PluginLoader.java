@@ -19,8 +19,8 @@ public class PluginLoader {
 
     public void loadPlugins(String pluginsDirectoryPath) throws Exception {
         File pluginDir = new File(pluginsDirectoryPath);
+        if (!pluginDir.exists()) pluginDir.mkdirs();
         File[] jarFiles = pluginDir.listFiles((dir, name) -> name.endsWith(".jar"));
-        if (jarFiles == null) return;
         for (File jar : jarFiles) {
             load(jar);
         }
@@ -34,19 +34,21 @@ public class PluginLoader {
         // Convention: plugin main class specified in a plugin.yml, or fallback to first found
         String mainClassName = PluginDescriptor.getMainClassName(pluginJarFile);
         if (mainClassName == null) {
-            // fallback: skip this jar
+        	loader.close();
             return null;
         }
         Class<?> clazz = loader.loadClass(mainClassName);
         Object pluginInstance = clazz.getDeclaredConstructor().newInstance();
 
         if (pluginInstance instanceof Plugin) {
+        	loader.close();
         	Plugin plugin = (Plugin) pluginInstance;
             plugin.onEnable();
             registerAnnotatedListeners(plugin, eventManager);
             plugins.add(plugin);
             return plugin;
         }
+        loader.close();
         return null;
     }
 
