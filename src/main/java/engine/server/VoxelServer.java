@@ -12,6 +12,8 @@ import engine.common.network.packet.PlayerMovePacket;
 import engine.common.player.Player;
 import engine.common.world.Chunk;
 import engine.common.world.FlatChunkGenerator;
+import server.event.EventManager;
+import server.event.player.PlayerChatEvent;
 import server.event.player.PlayerJoinEvent;
 
 import java.io.File;
@@ -64,6 +66,7 @@ public class VoxelServer {
      //init Server instance
      serverInstance = new server.Server();
      serverInstance.start();
+     RegisterServerEvents();
  }
 
  private void sendChunkIfNotSent(Connection connection, int cx, int cy, int cz) {
@@ -81,10 +84,25 @@ public class VoxelServer {
          // Optional: System.out.println("Server: Skipped sending duplicate chunk " + chunkKey);
      }
  }
+ 
+ private void RegisterServerEvents() {
+ 	EventManager eventManager = serverInstance.getEventManager();
+ 	
+ 	eventManager.registerListener(PlayerChatEvent.class, new server.event.EventListener<PlayerChatEvent>() {
+		@Override
+		public void handle(PlayerChatEvent event) {
+			System.out.println("Fired server event");
+			Player player = event.getPlayer();
+ 	        Connection conn = player.getConnection(); // Or from a map
+
+		}
+ 	});
+ }
 
  private void registerPacketHandlers() {
+
      packetHandlers.put(PlayerJoinPacket.class, (PacketHandler<PlayerJoinPacket>) (connection, pj) -> {
-         Player player = new Player(UUID.randomUUID(), "Player");
+         Player player = new Player(UUID.randomUUID(), "Player", connection);
          player.setPosition(pj.x, pj.y, pj.z);
          players.put(pj.playerId, player);
          serverInstance.getEventManager().fireEvent(new PlayerJoinEvent(player));

@@ -1,4 +1,4 @@
-package engine.common.player;
+package engine.client.common;
 
 import java.util.UUID;
 
@@ -12,25 +12,11 @@ public class Player {
     private float yaw, pitch;
     private final UUID uuid;
     private String name;
-    private Connection conn;
-    public Player(UUID uuid, String name, Connection conn) { 
+    public Player(UUID uuid, String name) { 
     	x=0; y=5; z=0;
     	this.uuid = uuid;
     	this.name = name;
-    	this.conn = conn;
     }
-    public Connection getConnection() {
-    	return conn;
-    }
-    public void sendMessage(String message) {
-    	System.out.println("Called sendMessage");
-    	PlayerChatEvent event = new PlayerChatEvent(this, message, null);
-    	if (!event.isCancelled()) {
-    		Server.getInstance().getEventManager().fireEvent(event);
-    		System.out.println("fired sendMessage");
-    	}
-    }
-
     public UUID getUniqueID() { return uuid; }
     public String getDisplayName() { return name; }
     public void setDisplayName(String name) { this.name = name;}
