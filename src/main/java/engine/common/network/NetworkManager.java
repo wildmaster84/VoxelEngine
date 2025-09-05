@@ -29,7 +29,7 @@ public class NetworkManager {
         server.bind(tcpPort, udpPort);
     }
     public void startClient(String host, int tcpPort, int udpPort) throws Exception {
-        client = new Client(4096, 4096);
+        client = new Client(1024, 1024);
         registerPackets(client);
         client.start();
         client.connect(5000, host, tcpPort, udpPort);
@@ -41,7 +41,7 @@ public class NetworkManager {
         Deflater deflater = new Deflater();
         deflater.setInput(data);
         deflater.finish();
-        byte[] buffer = new byte[4096];
+        byte[] buffer = new byte[1024];
         int compressedSize = deflater.deflate(buffer);
         byte[] output = new byte[compressedSize];
         System.arraycopy(buffer, 0, output, 0, compressedSize);
