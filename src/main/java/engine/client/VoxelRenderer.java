@@ -4,14 +4,13 @@ import engine.client.common.Player;
 import engine.common.block.BlockRegistry;
 import engine.common.block.Material;
 import engine.common.world.Chunk;
-
 import org.lwjgl.opengl.GL11;
 
 public class VoxelRenderer {
     private WorldView world;
     private BlockRegistry blockRegistry;
-    private TextureManager textureManager; // New field for texture system
-    private static final int VIEW_DISTANCE = 6;
+    private TextureManager textureManager;
+    private static final int VIEW_DISTANCE = 2;
 
     public VoxelRenderer(WorldView world, BlockRegistry blockRegistry, TextureManager textureManager) {
         this.world = world;
@@ -33,30 +32,35 @@ public class VoxelRenderer {
                 Math.abs(dz) > VIEW_DISTANCE) {
                 continue;
             }
-            renderChunk(chunk);
+            renderChunk(chunk, player);
         }
     }
 
-    private void renderChunk(Chunk chunk) {
+    private void renderChunk(Chunk chunk, Player player) {
         int baseX = chunk.getX() * Chunk.SIZE;
         int baseY = chunk.getY() * Chunk.SIZE;
         int baseZ = chunk.getZ() * Chunk.SIZE;
+        float px = player.getX();
+        float py = player.getY();
+        float pz = player.getZ();
+
         for (int x = 0; x < Chunk.SIZE; x++) {
             for (int y = 0; y < Chunk.SIZE; y++) {
                 for (int z = 0; z < Chunk.SIZE; z++) {
-                	Material type = chunk.getBlock(x, y, z).getType();
+                    Material type = chunk.getBlock(x, y, z).getType();
                     if (type != Material.AIR) {
-                        if (shouldRenderFace(chunk, x, y, z, 0, 0, 1))
+                        // For each face, check not only if it's exposed, but if it's visible to the player
+                        if (shouldRenderFace(chunk, x, y, z, 0, 0, 1) && isFaceVisibleToPlayer(px, py, pz, baseX + x, baseY + y, baseZ + z, "front", player))
                             renderBlockFace(baseX + x, baseY + y, baseZ + z, type, "front");
-                        if (shouldRenderFace(chunk, x, y, z, 0, 0, -1))
+                        if (shouldRenderFace(chunk, x, y, z, 0, 0, -1) && isFaceVisibleToPlayer(px, py, pz, baseX + x, baseY + y, baseZ + z, "back", player))
                             renderBlockFace(baseX + x, baseY + y, baseZ + z, type, "back");
-                        if (shouldRenderFace(chunk, x, y, z, -1, 0, 0))
+                        if (shouldRenderFace(chunk, x, y, z, -1, 0, 0) && isFaceVisibleToPlayer(px, py, pz, baseX + x, baseY + y, baseZ + z, "left", player))
                             renderBlockFace(baseX + x, baseY + y, baseZ + z, type, "left");
-                        if (shouldRenderFace(chunk, x, y, z, 1, 0, 0))
+                        if (shouldRenderFace(chunk, x, y, z, 1, 0, 0) && isFaceVisibleToPlayer(px, py, pz, baseX + x, baseY + y, baseZ + z, "right", player))
                             renderBlockFace(baseX + x, baseY + y, baseZ + z, type, "right");
-                        if (shouldRenderFace(chunk, x, y, z, 0, 1, 0))
+                        if (shouldRenderFace(chunk, x, y, z, 0, 1, 0) && isFaceVisibleToPlayer(px, py, pz, baseX + x, baseY + y, baseZ + z, "top", player))
                             renderBlockFace(baseX + x, baseY + y, baseZ + z, type, "top");
-                        if (shouldRenderFace(chunk, x, y, z, 0, -1, 0))
+                        if (shouldRenderFace(chunk, x, y, z, 0, -1, 0) && isFaceVisibleToPlayer(px, py, pz, baseX + x, baseY + y, baseZ + z, "bottom", player))
                             renderBlockFace(baseX + x, baseY + y, baseZ + z, type, "bottom");
                     }
                 }
@@ -64,6 +68,7 @@ public class VoxelRenderer {
         }
     }
 
+    // Basic face culling: only render faces adjacent to air/outside
     private boolean shouldRenderFace(Chunk chunk, int x, int y, int z, int dx, int dy, int dz) {
         int nx = x + dx, ny = y + dy, nz = z + dz;
         if (nx < 0 || nx >= Chunk.SIZE ||
@@ -74,23 +79,61 @@ public class VoxelRenderer {
         return chunk.getBlock(nx, ny, nz).getType() == Material.AIR;
     }
 
+    // Checks if a face is visible to the player (simple dot product with player look direction)
+    private boolean isFaceVisibleToPlayer(float px, float py, float pz, int bx, int by, int bz, String face, Player player) {
+        // Get player's look direction
+        float yaw = player.getYaw();
+        float pitch = player.getPitch();
+        float yawRad = (float)Math.toRadians(yaw);
+        float pitchRad = (float)Math.toRadians(pitch);
+
+        float lookX = (float)(Math.cos(pitchRad) * Math.sin(yawRad));
+        float lookY = (float)(Math.sin(pitchRad));
+        float lookZ = (float)(Math.cos(pitchRad) * Math.cos(yawRad));
+
+        // Get face normal
+        float nx = 0, ny = 0, nz = 0;
+        switch (face) {
+            case "front":  nz = 1; break;
+            case "back":   nz = -1; break;
+            case "left":   nx = -1; break;
+            case "right":  nx = 1; break;
+            case "top":    ny = 1; break;
+            case "bottom": ny = -1; break;
+        }
+
+        // Vector from block center to player
+        float vx = px - (bx + 0.5f);
+        float vy = py - (by + 0.5f);
+        float vz = pz - (bz + 0.5f);
+
+        // Simple check: is the face normal pointing roughly toward player look direction?
+        // dot(faceNormal, lookDirection) > 0 (face toward camera)
+        float dotLook = nx * lookX + ny * lookY + nz * lookZ;
+        // dot(faceNormal, vectorToPlayer) > 0 (face toward player position)
+        float dotPlayer = nx * vx + ny * vy + nz * vz;
+
+        // Tweak these thresholds for best results
+        return dotLook > 0.3f || dotPlayer > 0;
+    }
+
     // Updated to use the texture manager
     private void renderBlockFace(int x, int y, int z, Material type, String face) {
         GL11.glPushMatrix();
         GL11.glTranslatef(x, y, z);
         BlockRegistry.BlockInfo info = blockRegistry.getInfo(type);
 
-        //GL11.glColor3f(info.r, info.g, info.b);
-
-        // Select the correct texture for the face
         String textureName;
         switch (face) {
             case "top":    textureName = info.textureTop;    break;
             case "bottom": textureName = info.textureBottom; break;
-            default:       textureName = info.textureSide;   break; // front, back, left, right
+            default:       textureName = info.textureSide;   break;
         }
-        if (type == Material.AIR || textureName == null) return;
-        
+        if (type == Material.AIR || textureName == null) {
+            GL11.glPopMatrix();
+            return;
+        }
+
         GL11.glEnable(GL11.GL_TEXTURE_2D);
         textureManager.bindTexture(textureName);
 

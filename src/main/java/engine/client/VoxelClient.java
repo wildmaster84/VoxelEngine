@@ -30,7 +30,6 @@ public class VoxelClient {
     private Map<String, Player> otherPlayers = new HashMap<>();
     private TextureManager textureManager = new TextureManager();
     private VoxelRenderer renderer = new VoxelRenderer(worldView, blockRegistry, textureManager);
-    private MessageOverlay overlay = new MessageOverlay();
 
     @FunctionalInterface
     interface PacketHandler<T> {
@@ -116,7 +115,7 @@ public class VoxelClient {
             lastMouseY = mouseY;
 
             // --- WASD movement (XZ plane, ignores pitch) ---
-            float moveSpeed = 3.3f; // Adjust for reasonable walking speed
+            float moveSpeed = 0.3f; // Adjust for reasonable walking speed
             float yawRad = (float)Math.toRadians(camYaw);
 
             // Forward vector (XZ plane)
@@ -228,15 +227,15 @@ public class VoxelClient {
             }
 
             // Other debug info
-            String playerPos = "X:" + localPlayer.getX() + " Y:" + localPlayer.getY() + "Z:" + localPlayer.getX(); // e.g. "X:123 Y:64 Z:42"
+            String playerPos = "X:" + localPlayer.getX() + " Y:" + localPlayer.getY() + " Z:" + localPlayer.getX(); // e.g. "X:123 Y:64 Z:42"
             long usedMem = Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory();
             String memStr = String.format("Mem: %.2f MB", usedMem / 1024.0 / 1024.0);
 
             // Combine messages
-            String debugString = String.format("FPS: %.2f  |  %s  |  %s | Chunks: %s", fps, playerPos, memStr, worldView.getChunks().size());
+            String debugString = String.format("FPS: %s  |  %s  |  %s | Chunks: %s", (int)fps, playerPos, memStr, worldView.getChunks().size());
 
             // Display in overlay
-            MessageOverlay.addMessage(debugString, 200); // Show for 1 second (refreshes each frame)
+            MessageOverlay.addMessage(debugString, 200);
 
             GLFW.glfwSwapBuffers(window);
             GLFW.glfwPollEvents();
