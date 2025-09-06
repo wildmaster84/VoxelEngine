@@ -4,7 +4,9 @@ public enum Material {
 	AIR(0),
 	DIRT(1),
 	GRASS(2),
-	STONE(3);
+	STONE(3),
+	SAND(4),
+    WATER(5);
 	
 	private final int id;
 	

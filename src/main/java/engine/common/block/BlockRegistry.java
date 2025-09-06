@@ -56,6 +56,10 @@ public class BlockRegistry {
         reg.register(Material.DIRT, "dirt", "dirt.png");
         // stone: all faces "stone.png"
         reg.register(Material.STONE, "stone", "stone.png");
+        
+        reg.register(Material.SAND, "sand", "sand.png");
+        
+        reg.register(Material.WATER, "water", "water_still.png", "water_still.png", "water_still.png");
         return reg;
     }
     public Collection<BlockInfo> getAllBlockInfos() {

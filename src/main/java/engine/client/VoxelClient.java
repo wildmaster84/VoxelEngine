@@ -75,6 +75,8 @@ public class VoxelClient {
         long window = GLFW.glfwCreateWindow(800, 600, "Voxel Client", 0, 0);
         GLFW.glfwMakeContextCurrent(window);
         GL.createCapabilities();
+        
+        renderer.initGL();
 
         // Hide and capture mouse
         GLFW.glfwSetInputMode(window, GLFW.GLFW_CURSOR, GLFW.GLFW_CURSOR_DISABLED);
@@ -291,6 +293,7 @@ public class VoxelClient {
                 textureManager.loadTexture(info.textureSide, "textures/" + info.textureSide);
             if (info.textureBottom != null)
                 textureManager.loadTexture(info.textureBottom, "textures/" + info.textureBottom);
+            renderer.detectAnimatedTextures();
         }
     }
 }

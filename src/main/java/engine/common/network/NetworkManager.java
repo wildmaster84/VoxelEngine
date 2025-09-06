@@ -23,13 +23,13 @@ public class NetworkManager {
         endPoint.getKryo().register(byte[].class); 
     }
     public void startServer(int tcpPort, int udpPort) throws Exception {
-        server = new Server(8192, 8192);
+        server = new Server(32768, 32768);
         registerPackets(server);
         server.start();
         server.bind(tcpPort, udpPort);
     }
     public void startClient(String host, int tcpPort, int udpPort) throws Exception {
-        client = new Client(1024, 1024);
+        client = new Client(32768, 32768);
         registerPackets(client);
         client.start();
         client.connect(5000, host, tcpPort, udpPort);
@@ -41,7 +41,7 @@ public class NetworkManager {
         Deflater deflater = new Deflater();
         deflater.setInput(data);
         deflater.finish();
-        byte[] buffer = new byte[1024];
+        byte[] buffer = new byte[32768];
         int compressedSize = deflater.deflate(buffer);
         byte[] output = new byte[compressedSize];
         System.arraycopy(buffer, 0, output, 0, compressedSize);
@@ -51,7 +51,7 @@ public class NetworkManager {
     public static byte[] decompress(byte[] data) throws Exception {
         Inflater inflater = new Inflater();
         inflater.setInput(data);
-        byte[] buffer = new byte[4096];
+        byte[] buffer = new byte[32768];
         int decompressedSize = inflater.inflate(buffer);
         byte[] output = new byte[decompressedSize];
         System.arraycopy(buffer, 0, output, 0, decompressedSize);

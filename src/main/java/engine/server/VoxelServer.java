@@ -12,6 +12,7 @@ import engine.common.network.packet.PlayerJoinPacket;
 import engine.common.network.packet.PlayerMovePacket;
 import engine.common.player.Player;
 import engine.common.world.Chunk;
+import engine.common.world.DefaultChunkGenerator;
 import engine.common.world.FlatChunkGenerator;
 import server.event.EventManager;
 import server.event.player.PlayerChatEvent;
@@ -26,7 +27,7 @@ public class VoxelServer {
  private NetworkManager network = new NetworkManager();
  private World world = new World(new File("serverworld"));
  private BlockRegistry blockRegistry = BlockRegistry.createDefault();
- private ChunkGenerator chunkGenerator = new FlatChunkGenerator();
+ private ChunkGenerator chunkGenerator = new DefaultChunkGenerator(1, 128);
  private Map<String, Player> players = new ConcurrentHashMap<>();
  private server.Server serverInstance;
 

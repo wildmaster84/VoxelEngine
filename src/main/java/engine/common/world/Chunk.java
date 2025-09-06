@@ -12,8 +12,9 @@ import engine.common.network.NetworkManager;
  */
 public class Chunk {
     public static final int SIZE = 16;
+    public static final int HEIGHT = 128;
     private final int chunkX, chunkY, chunkZ;
-    private final Block[][][] blocks = new Block[SIZE][SIZE][SIZE];
+    private final Block[][][] blocks = new Block[SIZE][HEIGHT][SIZE];
 
     // Private constructor: does NOT fill blocks!
     private Chunk(int chunkX, int chunkY, int chunkZ) {
@@ -26,7 +27,7 @@ public class Chunk {
     public static Chunk createGenerated(int chunkX, int chunkY, int chunkZ) {
         Chunk chunk = new Chunk(chunkX, chunkY, chunkZ);
         for(int x=0;x<SIZE;x++)
-            for(int y=0;y<SIZE;y++)
+            for(int y=0;y<HEIGHT;y++)
                 for(int z=0;z<SIZE;z++)
                     chunk.blocks[x][y][z] = new Block(Material.AIR);
         return chunk;
@@ -40,7 +41,7 @@ public class Chunk {
     }
 
     public Block getBlock(int x, int y, int z) {
-        if (x < 0 || x >= SIZE || y < 0 || y >= SIZE || z < 0 || z >= SIZE) return null;
+        if (x < 0 || x >= SIZE || y < 0 || y >= HEIGHT || z < 0 || z >= SIZE) return null;
         return blocks[x][y][z];
     }
     public void setBlock(int x, int y, int z, Block block) { blocks[x][y][z] = block; }
@@ -52,7 +53,7 @@ public class Chunk {
         try(DataOutputStream out = new DataOutputStream(new FileOutputStream(file))) {
             out.writeInt(chunkX); out.writeInt(chunkY); out.writeInt(chunkZ);
             for(int x=0;x<SIZE;x++)
-                for(int y=0;y<SIZE;y++)
+                for(int y=0;y<HEIGHT;y++)
                     for(int z=0;z<SIZE;z++)
                     	out.writeByte(blocks[x][y][z].getType().getId());
         }
@@ -62,7 +63,7 @@ public class Chunk {
             int cx = in.readInt(), cy = in.readInt(), cz = in.readInt();
             Chunk chunk = createGenerated(cx, cy, cz); // Loads on server
             for(int x=0;x<SIZE;x++)
-                for(int y=0;y<SIZE;y++)
+                for(int y=0;y<HEIGHT;y++)
                     for(int z=0;z<SIZE;z++)
                     	chunk.blocks[x][y][z].setType(Material.fromId(in.readByte()));
             return chunk;
@@ -70,10 +71,10 @@ public class Chunk {
     }
 
     public byte[] serializeBlocks() {
-    	byte[] data = new byte[SIZE * SIZE * SIZE];
+    	byte[] data = new byte[SIZE * HEIGHT * SIZE];
     	int i = 0;
     	for (int x = 0; x < SIZE; x++)
-    	    for (int y = 0; y < SIZE; y++)
+    	    for (int y = 0; y < HEIGHT; y++)
     	        for (int z = 0; z < SIZE; z++)
     	            data[i++] = (byte)getBlock(x, y, z).getType().getId();
     	return NetworkManager.compress(data);
@@ -87,9 +88,13 @@ public class Chunk {
             e.printStackTrace();
             return;
         }
+        int expected = SIZE * HEIGHT * SIZE;
+        if (data.length != expected) {
+            throw new IllegalArgumentException("Block data size mismatch! Got " + data.length + ", expected " + expected);
+        }
         int i = 0;
         for (int x = 0; x < SIZE; x++)
-            for (int y = 0; y < SIZE; y++)
+            for (int y = 0; y < HEIGHT; y++)
                 for (int z = 0; z < SIZE; z++) {
                 	blocks[x][y][z] = new Block(Material.fromId(data[i++]));
                 }
