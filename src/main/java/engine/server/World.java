@@ -57,7 +57,7 @@ public class World {
         Chunk chunk = getChunk(x, y, z);
         if (chunk == null) {
             chunk = Chunk.createGenerated(x, y, z); // Generate chunk (server only)
-            chunkGenerator.generate(chunk, blockRegistry);
+            chunkGenerator.generate(chunk);
             setChunk(chunk);
             saveChunk(chunk);
         }
@@ -69,7 +69,7 @@ public class World {
         if (chunk != null) {
             return CompletableFuture.completedFuture(chunk);
         } else {
-            CompletableFuture<Chunk> future = asyncChunkGenerator.generateChunkAsync(x, y, z, chunkGenerator, blockRegistry);
+            CompletableFuture<Chunk> future = asyncChunkGenerator.generateChunkAsync(x, y, z, chunkGenerator);
             future.thenAccept(genChunk -> {
                 setChunk(genChunk);
                 saveChunk(genChunk);
