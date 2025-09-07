@@ -1,7 +1,5 @@
 package engine.client;
 
-import org.lwjgl.opengl.GL15;
-import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL20;
 
 public class ChunkMesh {
@@ -10,7 +8,7 @@ public class ChunkMesh {
 
     public void free() {
         if (vboId != -1) {
-            GL15.glDeleteBuffers(vboId);
+            GL20.glDeleteBuffers(vboId);
             vboId = -1;
         }
     }

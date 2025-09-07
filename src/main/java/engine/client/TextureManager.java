@@ -1,8 +1,7 @@
 package engine.client;
 
 import org.lwjgl.BufferUtils;
-import org.lwjgl.opengl.GL11;
-import org.lwjgl.opengl.GL12;
+import org.lwjgl.opengl.GL20;
 
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
@@ -47,16 +46,16 @@ public class TextureManager {
             }
             buffer.flip();
 
-            int texId = GL11.glGenTextures();
-            GL11.glBindTexture(GL11.GL_TEXTURE_2D, texId);
+            int texId = GL20.glGenTextures();
+            GL20.glBindTexture(GL20.GL_TEXTURE_2D, texId);
 
-            GL11.glTexImage2D(GL11.GL_TEXTURE_2D, 0, GL11.GL_RGBA, width, height, 0,
-                    GL11.GL_RGBA, GL11.GL_UNSIGNED_BYTE, buffer);
+            GL20.glTexImage2D(GL20.GL_TEXTURE_2D, 0, GL20.GL_RGBA, width, height, 0,
+            		GL20.GL_RGBA, GL20.GL_UNSIGNED_BYTE, buffer);
 
-            GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_NEAREST);
-            GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_NEAREST);
-            GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_S, GL12.GL_CLAMP_TO_EDGE);
-            GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_T, GL12.GL_CLAMP_TO_EDGE);
+            GL20.glTexParameteri(GL20.GL_TEXTURE_2D, GL20.GL_TEXTURE_MIN_FILTER, GL20.GL_NEAREST);
+            GL20.glTexParameteri(GL20.GL_TEXTURE_2D, GL20.GL_TEXTURE_MAG_FILTER, GL20.GL_NEAREST);
+            //GL20.glTexParameteri(GL20.GL_TEXTURE_2D, GL20.GL_TEXTURE_WRAP_S, GL20.GL_CLAMP_TO_EDGE);
+            //GL20.glTexParameteri(GL20.GL_TEXTURE_2D, GL20.GL_TEXTURE_WRAP_T, GL20.GL_CLAMP_TO_EDGE);
 
             textureIds.put(name, texId);
             textureWidths.put(name, width);
@@ -71,7 +70,7 @@ public class TextureManager {
     public void bindTexture(String name) {
         Integer texId = textureIds.get(name);
         if (texId != null) {
-            GL11.glBindTexture(GL11.GL_TEXTURE_2D, texId);
+        	GL20.glBindTexture(GL20.GL_TEXTURE_2D, texId);
         }
     }
 
@@ -98,7 +97,7 @@ public class TextureManager {
     // Optional: delete all textures
     public void cleanup() {
         for (int texId : textureIds.values()) {
-            GL11.glDeleteTextures(texId);
+        	GL20.glDeleteTextures(texId);
         }
         textureIds.clear();
         textureWidths.clear();

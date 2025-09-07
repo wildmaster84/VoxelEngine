@@ -13,7 +13,6 @@ import engine.common.network.packet.PlayerMovePacket;
 import engine.common.player.Player;
 import engine.common.world.Chunk;
 import engine.common.world.DefaultChunkGenerator;
-import engine.common.world.FlatChunkGenerator;
 import server.event.EventManager;
 import server.event.player.PlayerChatEvent;
 import server.event.player.PlayerJoinEvent;

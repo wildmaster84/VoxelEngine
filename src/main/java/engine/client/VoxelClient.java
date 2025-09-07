@@ -15,7 +15,7 @@ import engine.client.common.Player;
 
 import org.lwjgl.glfw.GLFW;
 import org.lwjgl.opengl.GL;
-import org.lwjgl.opengl.GL11;
+import org.lwjgl.opengl.GL20;
 import org.lwjgl.system.MemoryStack;
 import org.joml.Matrix4f;
 
@@ -82,7 +82,7 @@ public class VoxelClient {
         GLFW.glfwSetInputMode(window, GLFW.GLFW_CURSOR, GLFW.GLFW_CURSOR_DISABLED);
         GLFW.glfwSetCursorPos(window, lastMouseX, lastMouseY);
 
-        GL11.glClearColor(0.5f, 0.7f, 1f, 1f); // sky blue
+        GL20.glClearColor(0.5f, 0.7f, 1f, 1f); // sky blue
 
         // --- Jumping variables ---
         float velocityY = 0f;
@@ -100,8 +100,8 @@ public class VoxelClient {
 
         while (!GLFW.glfwWindowShouldClose(window)) {
         	
-            GL11.glClear(GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT);
-            GL11.glEnable(GL11.GL_DEPTH_TEST);
+        	GL20.glClear(GL20.GL_COLOR_BUFFER_BIT | GL20.GL_DEPTH_BUFFER_BIT);
+        	GL20.glEnable(GL20.GL_DEPTH_TEST);
 
             // --- Mouse look (first person camera) ---
             double[] mx = new double[1], my = new double[1];
@@ -206,10 +206,10 @@ public class VoxelClient {
                 projection.get(projBuffer);
                 view.get(viewBuffer);
 
-                GL11.glMatrixMode(GL11.GL_PROJECTION);
-                GL11.glLoadMatrixf(projBuffer);
-                GL11.glMatrixMode(GL11.GL_MODELVIEW);
-                GL11.glLoadMatrixf(viewBuffer);
+                GL20.glMatrixMode(GL20.GL_PROJECTION);
+                GL20.glLoadMatrixf(projBuffer);
+                GL20.glMatrixMode(GL20.GL_MODELVIEW);
+                GL20.glLoadMatrixf(viewBuffer);
             }
 
 

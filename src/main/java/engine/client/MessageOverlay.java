@@ -1,6 +1,6 @@
 package engine.client;
 
-import org.lwjgl.opengl.GL11;
+import org.lwjgl.opengl.GL20;
 import org.lwjgl.stb.STBTTFontinfo;
 import org.lwjgl.stb.STBTruetype;
 import org.lwjgl.system.MemoryStack;
@@ -59,13 +59,13 @@ public class MessageOverlay {
     }
 
     public static void render() {
-        GL11.glMatrixMode(GL11.GL_PROJECTION);
-        GL11.glPushMatrix();
-        GL11.glLoadIdentity();
-        GL11.glOrtho(0, 800, 600, 0, -1, 1);
-        GL11.glMatrixMode(GL11.GL_MODELVIEW);
-        GL11.glPushMatrix();
-        GL11.glLoadIdentity();
+    	GL20.glMatrixMode(GL20.GL_PROJECTION);
+    	GL20.glPushMatrix();
+    	GL20.glLoadIdentity();
+    	GL20.glOrtho(0, 800, 600, 0, -1, 1);
+    	GL20.glMatrixMode(GL20.GL_MODELVIEW);
+    	GL20.glPushMatrix();
+    	GL20.glLoadIdentity();
 
         long now = System.currentTimeMillis();
         int y = 40;
@@ -85,15 +85,15 @@ public class MessageOverlay {
             }
         } else {
             // Optionally draw a fallback message if font not loaded
-            GL11.glColor3f(1f, 0f, 0f);
-            GL11.glRasterPos2i(20, 40);
+        	GL20.glColor3f(1f, 0f, 0f);
+        	GL20.glRasterPos2i(20, 40);
             // No text renderer, so just do nothing or draw a colored quad as fallback
         }
 
-        GL11.glPopMatrix();
-        GL11.glMatrixMode(GL11.GL_PROJECTION);
-        GL11.glPopMatrix();
-        GL11.glMatrixMode(GL11.GL_MODELVIEW);
+        GL20.glPopMatrix();
+        GL20.glMatrixMode(GL20.GL_PROJECTION);
+        GL20.glPopMatrix();
+        GL20.glMatrixMode(GL20.GL_MODELVIEW);
     }
 
     // Very basic text rendering using STB Truetype and OpenGL immediate mode.
@@ -124,16 +124,16 @@ public class MessageOverlay {
                 ByteBuffer bitmap = STBTruetype.stbtt_GetCodepointBitmap(fontInfo, 0, scale, cp, pX1, pY1, pX0, pY0);
 
                 if (bitmap != null) {
-                    GL11.glRasterPos2i(x + pX0.get(0), yPos - pY0.get(0));
+                	GL20.glRasterPos2i(x + pX0.get(0), yPos - pY0.get(0));
                     for (int row = 0; row < h; row++) {
                         for (int col = 0; col < w; col++) {
                             int idx = row * w + col;
                             byte value = bitmap.get(idx);
                             if (value != 0) {
-                                GL11.glColor3f(1f, 1f, 1f);
-                                GL11.glBegin(GL11.GL_POINTS);
-                                GL11.glVertex2i(x + col, yPos + row);
-                                GL11.glEnd();
+                            	GL20.glColor3f(1f, 1f, 1f);
+                                GL20.glBegin(GL20.GL_POINTS);
+                                GL20.glVertex2i(x + col, yPos + row);
+                                GL20.glEnd();
                             }
                         }
                     }

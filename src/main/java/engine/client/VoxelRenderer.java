@@ -5,8 +5,6 @@ import engine.common.block.BlockRegistry;
 import engine.common.block.Material;
 import engine.common.world.Chunk;
 import org.lwjgl.BufferUtils;
-import org.lwjgl.opengl.GL11;
-import org.lwjgl.opengl.GL15;
 import org.lwjgl.opengl.GL20;
 
 import java.nio.FloatBuffer;
@@ -138,10 +136,10 @@ public class VoxelRenderer {
             buf.flip();
             ChunkMesh mesh = new ChunkMesh();
             mesh.vertexCount = buf.limit() / 5;
-            mesh.vboId = GL15.glGenBuffers();
-            GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, mesh.vboId);
-            GL15.glBufferData(GL15.GL_ARRAY_BUFFER, buf, GL15.GL_STATIC_DRAW);
-            GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, 0);
+            mesh.vboId = GL20.glGenBuffers();
+            GL20.glBindBuffer(GL20.GL_ARRAY_BUFFER, mesh.vboId);
+            GL20.glBufferData(GL20.GL_ARRAY_BUFFER, buf, GL20.GL_STATIC_DRAW);
+            GL20.glBindBuffer(GL20.GL_ARRAY_BUFFER, 0);
             meshes.put(entry.getKey(), mesh);
         }
         chunkMeshesByTexture.put(chunk, meshes);
@@ -175,12 +173,12 @@ public class VoxelRenderer {
 
     private void renderPass(Collection<Chunk> chunksInView, int px, int py, int pz, boolean opaque) {
         if (opaque) {
-            GL11.glDisable(GL11.GL_BLEND);
-            GL11.glDepthMask(true);
+        	GL20.glDisable(GL20.GL_BLEND);
+        	GL20.glDepthMask(true);
         } else {
-            GL11.glEnable(GL11.GL_BLEND);
-            GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
-            GL11.glDepthMask(false);
+        	GL20.glEnable(GL20.GL_BLEND);
+        	GL20.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
+        	GL20.glDepthMask(false);
         }
 
         for (Chunk chunk : chunksInView) {
@@ -218,8 +216,8 @@ public class VoxelRenderer {
         }
 
         if (!opaque) {
-            GL11.glDepthMask(true);
-            GL11.glDisable(GL11.GL_BLEND);
+        	GL20.glDepthMask(true);
+        	GL20.glDisable(GL20.GL_BLEND);
         }
     }
 
@@ -259,17 +257,17 @@ public class VoxelRenderer {
         shader.use();
         shader.setUniform("tex", 0);
 
-        GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, mesh.vboId);
+        GL20.glBindBuffer(GL20.GL_ARRAY_BUFFER, mesh.vboId);
         GL20.glEnableVertexAttribArray(0);
-        GL20.glVertexAttribPointer(0, 3, GL11.GL_FLOAT, false, 20, 0);
+        GL20.glVertexAttribPointer(0, 3, GL20.GL_FLOAT, false, 20, 0);
         GL20.glEnableVertexAttribArray(1);
-        GL20.glVertexAttribPointer(1, 2, GL11.GL_FLOAT, false, 20, 12);
+        GL20.glVertexAttribPointer(1, 2, GL20.GL_FLOAT, false, 20, 12);
 
-        GL11.glDrawArrays(GL11.GL_TRIANGLES, 0, mesh.vertexCount);
+        GL20.glDrawArrays(GL20.GL_TRIANGLES, 0, mesh.vertexCount);
 
         GL20.glDisableVertexAttribArray(0);
         GL20.glDisableVertexAttribArray(1);
-        GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, 0);
+        GL20.glBindBuffer(GL20.GL_ARRAY_BUFFER, 0);
 
         shader.stop();
     }
