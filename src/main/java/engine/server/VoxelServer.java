@@ -33,6 +33,12 @@ public class VoxelServer {
 
  // Track which chunks have been sent to which connection
  private Map<Connection, Set<String>> sentChunks = new ConcurrentHashMap<>();
+ 
+ private static final int TICKS_PER_SECOND = 30;
+ private static final long TICK_INTERVAL_MS = 1000 / TICKS_PER_SECOND;
+ private volatile int tickCount = 0;
+ private volatile double tps = TICKS_PER_SECOND;
+ private volatile long lastTpsUpdate = System.currentTimeMillis();
 
  @FunctionalInterface
  interface PacketHandler<T> {
@@ -65,11 +71,45 @@ public class VoxelServer {
          }
      });
      
+     Thread tickThread = new Thread(() -> {
+         long lastTickTime = System.currentTimeMillis();
+         while (true) {
+             long start = System.currentTimeMillis();
+             tick();
+
+             // TPS calculation every second
+             if (start - lastTpsUpdate >= 1000) {
+                 tps = tickCount * 1000.0 / (start - lastTpsUpdate);
+                 tickCount = 0;
+                 lastTpsUpdate = start;
+             }
+
+             long elapsed = System.currentTimeMillis() - start;
+             long sleepTime = TICK_INTERVAL_MS - elapsed;
+             if (sleepTime > 0) {
+                 try {
+                     Thread.sleep(sleepTime);
+                 } catch (InterruptedException e) {
+                     // Handle interrupt
+                     break;
+                 }
+             }
+         }
+     }, "Server-Tick-Thread");
+     tickThread.setDaemon(true);
+     tickThread.start();
+     
      //init Server instance
      serverInstance = new server.Server();
      RegisterServerEvents();
      serverInstance.start(this);
      
+ }
+ 
+ private void tick() {
+     // Example: world/game logic, entity updates, etc.
+     // For now, just increment tick count for TPS calculation
+     tickCount++;     
  }
 
  private void sendChunkIfNotSent(Connection connection, int cx, int cy, int cz) {
@@ -150,5 +190,9 @@ public class VoxelServer {
      });
 
      // Add more handlers as needed!
+ }
+ 
+ public double getTPS() {
+     return tps;
  }
 }

@@ -10,19 +10,23 @@ import org.lwjgl.opengl.GL15;
 import org.lwjgl.opengl.GL20;
 
 import java.nio.FloatBuffer;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 
 public class VoxelRenderer {
-    private WorldView world;
-    private BlockRegistry blockRegistry;
-    private TextureManager textureManager;
     private static final int VIEW_DISTANCE = 4;
 
+    private final WorldView world;
+    private final BlockRegistry blockRegistry;
+    private final TextureManager textureManager;
+
     private final Map<Chunk, Map<String, ChunkMesh>> chunkMeshesByTexture = new HashMap<>();
+    private final Map<String, AnimationInfo> animatedTextures = new HashMap<>();
+    private final Map<String, Integer> animationFrames = new HashMap<>();
+    private final Map<Chunk, Map<String, Integer>> chunkAnimatedFrame = new HashMap<>();
+
     private ShaderProgram shader;
 
+    // === Animation Info ===
     public static class AnimationInfo {
         public final int frameWidth, frameHeight, totalFrames, texWidth, texHeight;
         public AnimationInfo(int frameWidth, int frameHeight, int totalFrames, int texWidth, int texHeight) {
@@ -34,9 +38,22 @@ public class VoxelRenderer {
         }
     }
 
-    private final Map<String, AnimationInfo> animatedTextures = new HashMap<>();
-    private final Map<String, Integer> animationFrames = new HashMap<>();
-    private final Map<Chunk, Map<String, Integer>> chunkAnimatedFrame = new HashMap<>();
+    // === Faces enum ===
+    private enum Face {
+        FRONT(0, 0, 1),
+        BACK(0, 0, -1),
+        LEFT(-1, 0, 0),
+        RIGHT(1, 0, 0),
+        TOP(0, 1, 0),
+        BOTTOM(0, -1, 0);
+
+        final int dx, dy, dz;
+        Face(int dx, int dy, int dz) {
+            this.dx = dx;
+            this.dy = dy;
+            this.dz = dz;
+        }
+    }
 
     public VoxelRenderer(WorldView world, BlockRegistry blockRegistry, TextureManager textureManager) {
         this.world = world;
@@ -44,16 +61,16 @@ public class VoxelRenderer {
         this.textureManager = textureManager;
     }
 
+    // === Setup ===
     public void detectAnimatedTextures() {
         for (String textureName : textureManager.getAllTextureNames()) {
             int texWidth = textureManager.getTextureWidth(textureName);
             int texHeight = textureManager.getTextureHeight(textureName);
 
             if (texHeight > texWidth && texHeight % texWidth == 0) {
-                int frameWidth = texWidth;
-                int frameHeight = texWidth;
                 int totalFrames = texHeight / texWidth;
-                animatedTextures.put(textureName, new AnimationInfo(frameWidth, frameHeight, totalFrames, texWidth, texHeight));
+                animatedTextures.put(textureName,
+                        new AnimationInfo(texWidth, texWidth, totalFrames, texWidth, texHeight));
                 animationFrames.put(textureName, 0);
             }
         }
@@ -68,9 +85,11 @@ public class VoxelRenderer {
         }
     }
 
+    // === Chunk Mesh Building ===
     public void rebuildChunkMeshes(Chunk chunk) {
-        Map<String, ChunkMesh> old = chunkMeshesByTexture.get(chunk);
-        if (old != null) for (ChunkMesh mesh : old.values()) mesh.free();
+        // Free old meshes
+        Map<String, ChunkMesh> old = chunkMeshesByTexture.remove(chunk);
+        if (old != null) old.values().forEach(ChunkMesh::free);
 
         Map<String, FloatBuffer> buffers = new HashMap<>();
         int baseX = chunk.getX() * Chunk.SIZE;
@@ -82,32 +101,31 @@ public class VoxelRenderer {
                 for (int z = 0; z < Chunk.SIZE; z++) {
                     Material type = chunk.getBlock(x, y, z).getType();
                     if (type == Material.AIR) continue;
-                    BlockRegistry.BlockInfo info = blockRegistry.getInfo(type);
 
-                    for (String face : new String[]{"front", "back", "left", "right", "top", "bottom"}) {
-                        String textureName;
-                        switch (face) {
-                            case "top": textureName = info.textureTop; break;
-                            case "bottom": textureName = info.textureBottom; break;
-                            default: textureName = info.textureSide; break;
-                        }
+                    BlockRegistry.BlockInfo info = blockRegistry.getInfo(type);
+                    for (Face face : Face.values()) {
+                        String textureName = switch (face) {
+                            case TOP -> info.textureTop;
+                            case BOTTOM -> info.textureBottom;
+                            default -> info.textureSide;
+                        };
                         if (textureName == null) continue;
-                        if (!shouldRenderFace(chunk, x, y, z, faceToDx(face), faceToDy(face), faceToDz(face), type))
-                            continue;
-                        FloatBuffer buf = buffers.computeIfAbsent(textureName, k -> BufferUtils.createFloatBuffer(1024 * 1024));
+                        if (!shouldRenderFace(chunk, x, y, z, face, type)) continue;
+
+                        FloatBuffer buf = buffers.computeIfAbsent(
+                                textureName, k -> BufferUtils.createFloatBuffer(1024 * 1024));
 
                         if (animatedTextures.containsKey(textureName)) {
                             AnimationInfo anim = animatedTextures.get(textureName);
                             int frameIdx = animationFrames.getOrDefault(textureName, 0);
 
-                            float uMin = 0f;
-                            float uMax = (float)anim.frameWidth / anim.texWidth;
-                            float vMin = (float)(frameIdx * anim.frameHeight) / anim.texHeight;
-                            float vMax = (float)((frameIdx + 1) * anim.frameHeight) / anim.texHeight;
+                            float uMax = (float) anim.frameWidth / anim.texWidth;
+                            float vMin = (float) (frameIdx * anim.frameHeight) / anim.texHeight;
+                            float vMax = (float) ((frameIdx + 1) * anim.frameHeight) / anim.texHeight;
 
-                            putFace(buf, baseX + x, baseY + y, baseZ + z, type, face, uMin, uMax, vMin, vMax);
+                            putFace(buf, baseX + x, baseY + y, baseZ + z, face, 0f, uMax, vMin, vMax);
                         } else {
-                            putFace(buf, baseX + x, baseY + y, baseZ + z, type, face, 0f, 1f, 0f, 1f);
+                            putFace(buf, baseX + x, baseY + y, baseZ + z, face, 0f, 1f, 0f, 1f);
                         }
                     }
                 }
@@ -115,7 +133,7 @@ public class VoxelRenderer {
         }
 
         Map<String, ChunkMesh> meshes = new HashMap<>();
-        for (Map.Entry<String, FloatBuffer> entry : buffers.entrySet()) {
+        for (var entry : buffers.entrySet()) {
             FloatBuffer buf = entry.getValue();
             buf.flip();
             ChunkMesh mesh = new ChunkMesh();
@@ -130,36 +148,45 @@ public class VoxelRenderer {
     }
 
     public void removeChunkMeshes(Chunk chunk) {
-        Map<String, ChunkMesh> old = chunkMeshesByTexture.get(chunk);
-        if (old != null) for (ChunkMesh mesh : old.values()) mesh.free();
-        chunkMeshesByTexture.remove(chunk);
+        Map<String, ChunkMesh> old = chunkMeshesByTexture.remove(chunk);
+        if (old != null) old.values().forEach(ChunkMesh::free);
         chunkAnimatedFrame.remove(chunk);
     }
 
+    // === Rendering ===
     public void renderWorld(Player player) {
-        for (Map.Entry<String, AnimationInfo> entry : animatedTextures.entrySet()) {
+        // Update animation frames
+        for (var entry : animatedTextures.entrySet()) {
             AnimationInfo animInfo = entry.getValue();
-            int frame = (int)((System.currentTimeMillis() / 100) % animInfo.totalFrames);
+            int frame = (int) ((System.currentTimeMillis() / 100) % animInfo.totalFrames);
             animationFrames.put(entry.getKey(), frame);
         }
 
-        int playerChunkX = (int)Math.floor(player.getX() / Chunk.SIZE);
-        int playerChunkY = (int)Math.floor(player.getY() / Chunk.SIZE);
-        int playerChunkZ = (int)Math.floor(player.getZ() / Chunk.SIZE);
+        int playerChunkX = (int) Math.floor(player.getX() / Chunk.SIZE);
+        int playerChunkY = (int) Math.floor(player.getY() / Chunk.SIZE);
+        int playerChunkZ = (int) Math.floor(player.getZ() / Chunk.SIZE);
 
         Collection<Chunk> chunksInView = world.getChunks();
 
-        // 1. OPAQUE PASS
-        GL11.glDisable(GL11.GL_BLEND);
-        GL11.glDepthMask(true);
+        // Render opaque then transparent
+        renderPass(chunksInView, playerChunkX, playerChunkY, playerChunkZ, true);
+        renderPass(chunksInView, playerChunkX, playerChunkY, playerChunkZ, false);
+    }
+
+    private void renderPass(Collection<Chunk> chunksInView, int px, int py, int pz, boolean opaque) {
+        if (opaque) {
+            GL11.glDisable(GL11.GL_BLEND);
+            GL11.glDepthMask(true);
+        } else {
+            GL11.glEnable(GL11.GL_BLEND);
+            GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+            GL11.glDepthMask(false);
+        }
 
         for (Chunk chunk : chunksInView) {
-            int dx = chunk.getX() - playerChunkX;
-            int dy = chunk.getY() - playerChunkY;
-            int dz = chunk.getZ() - playerChunkZ;
-            if (Math.abs(dx) > VIEW_DISTANCE ||
-                Math.abs(dy) > VIEW_DISTANCE ||
-                Math.abs(dz) > VIEW_DISTANCE) {
+            if (Math.abs(chunk.getX() - px) > VIEW_DISTANCE ||
+                Math.abs(chunk.getY() - py) > VIEW_DISTANCE ||
+                Math.abs(chunk.getZ() - pz) > VIEW_DISTANCE) {
                 continue;
             }
 
@@ -167,8 +194,7 @@ public class VoxelRenderer {
             Map<String, Integer> lastFrames = chunkAnimatedFrame.computeIfAbsent(chunk, k -> new HashMap<>());
             for (String animTex : animatedTextures.keySet()) {
                 int currentFrame = animationFrames.get(animTex);
-                int lastFrame = lastFrames.getOrDefault(animTex, -1);
-                if (currentFrame != lastFrame) {
+                if (currentFrame != lastFrames.getOrDefault(animTex, -1)) {
                     needsRebuild = true;
                     lastFrames.put(animTex, currentFrame);
                 }
@@ -179,10 +205,11 @@ public class VoxelRenderer {
                 rebuildChunkMeshes(chunk);
                 texMeshes = chunkMeshesByTexture.get(chunk);
             }
+
             if (texMeshes != null) {
-                for (Map.Entry<String, ChunkMesh> entry : texMeshes.entrySet()) {
+                for (var entry : texMeshes.entrySet()) {
                     String textureName = entry.getKey();
-                    if (textureManager.isTextureOpaque(textureName)) {
+                    if (textureManager.isTextureOpaque(textureName) == opaque) {
                         textureManager.bindTexture(textureName);
                         renderChunkMesh(entry.getValue());
                     }
@@ -190,94 +217,32 @@ public class VoxelRenderer {
             }
         }
 
-        // 2. TRANSPARENT PASS
-        GL11.glEnable(GL11.GL_BLEND);
-        GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
-        GL11.glDepthMask(false);
-
-        for (Chunk chunk : chunksInView) {
-            int dx = chunk.getX() - playerChunkX;
-            int dy = chunk.getY() - playerChunkY;
-            int dz = chunk.getZ() - playerChunkZ;
-            if (Math.abs(dx) > VIEW_DISTANCE ||
-                Math.abs(dy) > VIEW_DISTANCE ||
-                Math.abs(dz) > VIEW_DISTANCE) {
-                continue;
-            }
-            Map<String, ChunkMesh> texMeshes = chunkMeshesByTexture.get(chunk);
-            if (texMeshes != null) {
-                for (Map.Entry<String, ChunkMesh> entry : texMeshes.entrySet()) {
-                    String textureName = entry.getKey();
-                    if (!textureManager.isTextureOpaque(textureName)) {
-                        textureManager.bindTexture(textureName);
-                        renderChunkMesh(entry.getValue());
-                    }
-                }
-            }
+        if (!opaque) {
+            GL11.glDepthMask(true);
+            GL11.glDisable(GL11.GL_BLEND);
         }
-        GL11.glDepthMask(true);
-        GL11.glDisable(GL11.GL_BLEND);
     }
 
-    private int faceToDx(String face) {
-        switch (face) { case "left": return -1; case "right": return 1; default: return 0; }
-    }
-    private int faceToDy(String face) {
-        switch (face) { case "top": return 1; case "bottom": return -1; default: return 0; }
-    }
-    private int faceToDz(String face) {
-        switch (face) { case "front": return 1; case "back": return -1; default: return 0; }
-    }
-
-    private void putFace(FloatBuffer buf, int x, int y, int z, Material type, String face,
-                        float uMin, float uMax, float vMin, float vMax) {
+    // === Face Helpers ===
+    private void putFace(FloatBuffer buf, int x, int y, int z, Face face,
+                         float uMin, float uMax, float vMin, float vMax) {
         float[][] positions = getFaceVertices(x, y, z, face);
         float[][] uvs = getFaceUVs(uMin, uMax, vMin, vMax);
-
         for (int i = 0; i < 6; i++) {
-            buf.put(positions[i][0]);
-            buf.put(positions[i][1]);
-            buf.put(positions[i][2]);
-            buf.put(uvs[i][0]);
-            buf.put(uvs[i][1]);
+            buf.put(positions[i][0]).put(positions[i][1]).put(positions[i][2]);
+            buf.put(uvs[i][0]).put(uvs[i][1]);
         }
     }
 
-    private float[][] getFaceVertices(int x, int y, int z, String face) {
-        switch (face) {
-            case "front":
-                return new float[][]{
-                    {x, y, z+1}, {x+1, y, z+1}, {x+1, y+1, z+1},
-                    {x, y, z+1}, {x+1, y+1, z+1}, {x, y+1, z+1}
-                };
-            case "back":
-                return new float[][]{
-                    {x, y, z}, {x+1, y, z}, {x+1, y+1, z},
-                    {x, y, z}, {x+1, y+1, z}, {x, y+1, z}
-                };
-            case "left":
-                return new float[][]{
-                    {x, y, z}, {x, y, z+1}, {x, y+1, z+1},
-                    {x, y, z}, {x, y+1, z+1}, {x, y+1, z}
-                };
-            case "right":
-                return new float[][]{
-                    {x+1, y, z}, {x+1, y, z+1}, {x+1, y+1, z+1},
-                    {x+1, y, z}, {x+1, y+1, z+1}, {x+1, y+1, z}
-                };
-            case "top":
-                return new float[][]{
-                    {x, y+1, z}, {x+1, y+1, z}, {x+1, y+1, z+1},
-                    {x, y+1, z}, {x+1, y+1, z+1}, {x, y+1, z+1}
-                };
-            case "bottom":
-                return new float[][]{
-                    {x, y, z}, {x+1, y, z}, {x+1, y, z+1},
-                    {x, y, z}, {x+1, y, z+1}, {x, y, z+1}
-                };
-            default:
-                throw new IllegalArgumentException("Unknown face: " + face);
-        }
+    private float[][] getFaceVertices(int x, int y, int z, Face face) {
+        return switch (face) {
+            case FRONT -> new float[][]{{x, y, z+1},{x+1,y,z+1},{x+1,y+1,z+1},{x,y,z+1},{x+1,y+1,z+1},{x,y+1,z+1}};
+            case BACK -> new float[][]{{x, y, z},{x+1,y,z},{x+1,y+1,z},{x,y,z},{x+1,y+1,z},{x,y+1,z}};
+            case LEFT -> new float[][]{{x,y,z},{x,y,z+1},{x,y+1,z+1},{x,y,z},{x,y+1,z+1},{x,y+1,z}};
+            case RIGHT -> new float[][]{{x+1,y,z},{x+1,y,z+1},{x+1,y+1,z+1},{x+1,y,z},{x+1,y+1,z+1},{x+1,y+1,z}};
+            case TOP -> new float[][]{{x,y+1,z},{x+1,y+1,z},{x+1,y+1,z+1},{x,y+1,z},{x+1,y+1,z+1},{x,y+1,z+1}};
+            case BOTTOM -> new float[][]{{x,y,z},{x+1,y,z},{x+1,y,z+1},{x,y,z},{x+1,y,z+1},{x,y,z+1}};
+        };
     }
 
     private float[][] getFaceUVs(float uMin, float uMax, float vMin, float vMax) {
@@ -287,6 +252,7 @@ public class VoxelRenderer {
         };
     }
 
+    // === Rendering Helpers ===
     private void renderChunkMesh(ChunkMesh mesh) {
         if (mesh.vertexCount == 0) return;
 
@@ -294,12 +260,10 @@ public class VoxelRenderer {
         shader.setUniform("tex", 0);
 
         GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, mesh.vboId);
-
         GL20.glEnableVertexAttribArray(0);
-        GL20.glVertexAttribPointer(0, 3, GL11.GL_FLOAT, false, 5 * 4, 0);
-
+        GL20.glVertexAttribPointer(0, 3, GL11.GL_FLOAT, false, 20, 0);
         GL20.glEnableVertexAttribArray(1);
-        GL20.glVertexAttribPointer(1, 2, GL11.GL_FLOAT, false, 5 * 4, 3 * 4);
+        GL20.glVertexAttribPointer(1, 2, GL11.GL_FLOAT, false, 20, 12);
 
         GL11.glDrawArrays(GL11.GL_TRIANGLES, 0, mesh.vertexCount);
 
@@ -310,42 +274,27 @@ public class VoxelRenderer {
         shader.stop();
     }
 
-    // Only render faces adjacent to air for water, for others if neighbor is transparent
-    private boolean shouldRenderFace(Chunk chunk, int x, int y, int z, int dx, int dy, int dz, Material type) {
-        int nx = x + dx, ny = y + dy, nz = z + dz;
-        if (nx >= 0 && nx < Chunk.SIZE &&
-            ny >= 0 && ny < Chunk.SIZE &&
-            nz >= 0 && nz < Chunk.SIZE) {
-            // Neighbor is in this chunk
-            Material neighborType = chunk.getBlock(nx, ny, nz).getType();
+    // === Neighbor Check ===
+    private boolean shouldRenderFace(Chunk chunk, int x, int y, int z, Face face, Material type) {
+        int nx = x + face.dx, ny = y + face.dy, nz = z + face.dz;
 
-            if (type == Material.WATER) {
-                return neighborType == Material.AIR;
-            } else {
-                return isTransparent(neighborType);
-            }
+        Material neighborType;
+        if (nx >= 0 && nx < Chunk.SIZE && ny >= 0 && ny < Chunk.SIZE && nz >= 0 && nz < Chunk.SIZE) {
+            neighborType = chunk.getBlock(nx, ny, nz).getType();
         } else {
-            // Neighbor is in another chunk
             Chunk neighborChunk = world.getChunk(
-                chunk.getX() + (nx < 0 ? -1 : (nx >= Chunk.SIZE ? 1 : 0)),
-                chunk.getY() + (ny < 0 ? -1 : (ny >= Chunk.SIZE ? 1 : 0)),
-                chunk.getZ() + (nz < 0 ? -1 : (nz >= Chunk.SIZE ? 1 : 0))
+                chunk.getX() + Integer.signum(nx / Chunk.SIZE),
+                chunk.getY() + Integer.signum(ny / Chunk.SIZE),
+                chunk.getZ() + Integer.signum(nz / Chunk.SIZE)
             );
-            if (neighborChunk == null) {
-                // If neighbor chunk isn't loaded, consider it air so face is visible
-                return true;
-            }
+            if (neighborChunk == null) return true; // Neighbor chunk not loaded → render
             int bx = (nx + Chunk.SIZE) % Chunk.SIZE;
             int by = (ny + Chunk.SIZE) % Chunk.SIZE;
             int bz = (nz + Chunk.SIZE) % Chunk.SIZE;
-            Material neighborType = neighborChunk.getBlock(bx, by, bz).getType();
-
-            if (type == Material.WATER) {
-                return neighborType == Material.AIR;
-            } else {
-                return isTransparent(neighborType);
-            }
+            neighborType = neighborChunk.getBlock(bx, by, bz).getType();
         }
+
+        return (type == Material.WATER) ? neighborType == Material.AIR : isTransparent(neighborType);
     }
 
     private boolean isTransparent(Material material) {

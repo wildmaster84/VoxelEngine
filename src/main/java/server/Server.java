@@ -22,11 +22,11 @@ public class Server {
         //eventManager.fireEvent(new PlayerJoinEvent("wildmaster84"));
 
         // Main server loop example
-        while (true) {
+        //while (true) {
             // ... handle networking, tick game logic, etc
             // You can fire more events here
-            Thread.sleep(1000); // Simulate tick
-        }
+        //    Thread.sleep(1000); // Simulate tick
+        //}
     }
 
     public EventManager getEventManager() {
@@ -43,5 +43,9 @@ public class Server {
     
     public VoxelServer getCraftServer() {
     	return self;
+    }
+    
+    public double getTPS() {
+    	return self.getTPS();
     }
 }
