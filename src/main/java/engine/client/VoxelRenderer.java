@@ -136,7 +136,8 @@ public class VoxelRenderer {
             buf.flip();
             ChunkMesh mesh = new ChunkMesh();
             mesh.vertexCount = buf.limit() / 5;
-            mesh.vboId = GL20.glGenBuffers();
+            if (mesh.vboId != 0)
+                mesh.vboId = GL20.glGenBuffers();
             GL20.glBindBuffer(GL20.GL_ARRAY_BUFFER, mesh.vboId);
             GL20.glBufferData(GL20.GL_ARRAY_BUFFER, buf, GL20.GL_STATIC_DRAW);
             GL20.glBindBuffer(GL20.GL_ARRAY_BUFFER, 0);
